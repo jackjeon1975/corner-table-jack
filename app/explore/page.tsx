@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { currentUser } from '@/lib/auth';
-import { listProjects, searchPosts } from '@/lib/queries';
+import { listProjects, searchPosts, popularTopics } from '@/lib/queries';
 import { STAGES, STAGE_LABEL, timeAgo } from '@/lib/format';
 import { PostCard, QuietBadge, StageBadge } from '@/components/ui';
 
@@ -15,6 +15,7 @@ export default async function Explore({ searchParams }: { searchParams: SP }) {
   const help = sp.help === '1';
   const projects = await listProjects({ q, stage, recruiting, help });
   const posts = q ? await searchPosts(q, me) : [];
+  const topics = await popularTopics();
 
   return (
     <>
@@ -33,6 +34,16 @@ export default async function Explore({ searchParams }: { searchParams: SP }) {
           <button type="submit" style={{ marginLeft: 'auto' }}>Search</button>
         </div>
       </form>
+
+      {topics.length > 0 && (
+        <nav className="topics" aria-label="Popular topics">
+          {topics.map((t) => (
+            <Link key={t.tag} href={`/explore?q=${encodeURIComponent('#' + t.tag)}`} className={q.toLowerCase() === '#' + t.tag ? 'on' : ''}>
+              #{t.tag} <span className="muted">{t.uses}</span>
+            </Link>
+          ))}
+        </nav>
+      )}
 
       <div className="section-title">Projects · {projects.length}</div>
       {projects.length === 0 && <p className="muted small">No projects match yet. Maybe yours is the first.</p>}

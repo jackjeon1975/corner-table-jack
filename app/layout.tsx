@@ -36,7 +36,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
       <body>
         <header className="top">
           <div className="wrap">
-            <Link href="/" className="brand"><span className="dot" aria-hidden />Corner Table</Link>
+            <Link href="/" className="brand"><svg className="logo" viewBox="0 0 32 32" width="22" height="22" aria-hidden="true"><rect width="32" height="32" rx="8" fill="var(--accent)" /><path d="M8.5 23V8.5H23" stroke="var(--bg)" strokeWidth="3" fill="none" strokeLinecap="round" strokeLinejoin="round" /><circle cx="19.5" cy="19.5" r="5" fill="var(--bg)" /></svg>Corner Table</Link>
             <nav className="nav" aria-label="Main">
               <Link href="/">Home</Link>
               <Link href="/explore">Explore</Link>

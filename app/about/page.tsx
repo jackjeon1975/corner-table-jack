@@ -25,6 +25,7 @@ Corner Table is a small café table for those projects.
         <li>Projects are public by design. Don&apos;t post secrets or anyone&apos;s personal information.</li>
       </ul>
       <p className="small">Rights holders can <Link href="/report">report an issue here</Link> without an account.</p>
+      <p className="small muted">Contact: <a href="mailto:env042@gmail.com">env042@gmail.com</a></p>
     </>
   );
 }

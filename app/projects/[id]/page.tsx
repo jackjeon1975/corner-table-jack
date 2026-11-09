@@ -1,3 +1,4 @@
+import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { currentUser } from '@/lib/auth';
@@ -10,6 +11,20 @@ import {
 } from '@/app/actions';
 
 type Props = { params: Promise<{ id: string }>; searchParams: Promise<Record<string, string | string[] | undefined>> };
+
+export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
+  const { id } = await params;
+  const project = await getProject(id);
+  if (!project) return {};
+  const title = project.title;
+  const description = `${STAGE_LABEL[project.stage] ?? project.stage} · led by @${project.leader_handle}${project.recruiting ? ' · recruiting' : ''} — ${project.concept.replace(/\s+/g, ' ').slice(0, 140)}`;
+  return {
+    title: `${title} · Corner Table`,
+    description,
+    openGraph: { title, description, url: `/projects/${id}`, siteName: 'Corner Table', type: 'article', images: ['/opengraph-image'] },
+    twitter: { card: 'summary_large_image', title, description, images: ['/opengraph-image'] },
+  };
+}
 
 const VIEWS: Record<string, { label: string; kinds?: string[] }> = {
   all: { label: 'Everything' },

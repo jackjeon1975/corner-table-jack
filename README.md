@@ -65,7 +65,8 @@ Copy `.env.example` to `.env.local` and fill in:
 | `ADMIN_HANDLES` | Comma-separated handles that can open `/ops` (moderation) |
 | `ALLOW_DEV_LOGIN` | `1` to allow dev login in production (keep `0` for real launches) |
 | `DATABASE_URL` | PostgreSQL connection string. On Vercel + Supabase use the transaction pooler (port 6543) |
-| `DATABASE_SSL` | `disable` or `no-verify` to override TLS (default: TLS for remote hosts) |
+| `DATABASE_SSL` | `disable` or `no-verify` to override TLS (default: TLS for remote hosts). `no-verify` is for local/temporary use only; in production use `DATABASE_CA_CERT` |
+| `DATABASE_CA_CERT` | Supabase root CA (PEM, PEM with literal `\n`, or base64). Required on Vercel + Supabase pooler; verifies the server certificate |
 
 ## What's in the MVP
 

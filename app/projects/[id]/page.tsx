@@ -22,34 +22,34 @@ export default async function ProjectPage({ params, searchParams }: Props) {
   const { id } = await params;
   const sp = await searchParams;
   const me = await currentUser();
-  const project = getProject(id);
+  const project = await getProject(id);
   if (!project) notFound();
 
   const view = typeof sp.view === 'string' && VIEWS[sp.view] ? sp.view : 'all';
   const before = typeof sp.before === 'string' ? sp.before : undefined;
   const back = `/projects/${id}${view !== 'all' ? `?view=${view}` : ''}`;
   const isLeader = me?.id === project.leader_id;
-  const members = membersOf(id);
+  const members = await membersOf(id);
   const isTeam = isLeader || members.some((m) => m.user_id === me?.id);
-  const posts = projectPosts(id, me, VIEWS[view].kinds, before);
-  const needs = all<{ id: string; label: string; status: string }>(
+  const posts = await projectPosts(id, me, VIEWS[view].kinds, before);
+  const needs = await all<{ id: string; label: string; status: string }>(
     `SELECT id, label, status FROM needs WHERE project_id = ? ORDER BY status = 'met', created_at`, id,
   );
-  const following = me ? Boolean(one('SELECT 1 FROM follows WHERE project_id = ? AND user_id = ?', id, me.id)) : false;
+  const following = me ? Boolean(await one('SELECT 1 FROM follows WHERE project_id = ? AND user_id = ?', id, me.id)) : false;
   const myMembership = me
-    ? one<{ id: string; status: string; role: string }>(
+    ? await one<{ id: string; status: string; role: string }>(
         `SELECT id, status, role FROM memberships WHERE project_id = ? AND user_id = ? ORDER BY created_at DESC LIMIT 1`, id, me.id,
       )
     : undefined;
   const pending = isLeader
-    ? all<{ id: string; role: string; intro: string; handle: string; created_at: string }>(
+    ? await all<{ id: string; role: string; intro: string; handle: string; created_at: string }>(
         `SELECT m.id, m.role, m.intro, u.handle, m.created_at FROM memberships m JOIN users u ON u.id = m.user_id
          WHERE m.project_id = ? AND m.status = 'pending' ORDER BY m.created_at`, id,
       )
     : [];
   const ended = project.stage === 'ended';
   const continuedFrom = project.continued_from
-    ? one<{ id: string; title: string }>(`SELECT id, title FROM projects WHERE id = ? AND visibility = 'public'`, project.continued_from)
+    ? await one<{ id: string; title: string }>(`SELECT id, title FROM projects WHERE id = ? AND visibility = 'public'`, project.continued_from)
     : undefined;
 
   return (

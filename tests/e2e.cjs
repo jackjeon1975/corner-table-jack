@@ -12,7 +12,8 @@ const PORT = Number(process.env.E2E_PORT || 3100);
 const B = `http://localhost:${PORT}`;
 const S = process.env.E2E_OUT || fs.mkdtempSync(path.join(os.tmpdir(), 'ct-e2e-'));
 fs.mkdirSync(S, { recursive: true });
-const DB = path.join(S, 'e2e.db');
+// A dedicated, throwaway database: it is wiped at the start of every run.
+const DB = process.env.TEST_DATABASE_URL || 'postgres://ct:ct@localhost:5432/corner_table_test';
 const log = (...a) => console.log('✓', ...a);
 function check(cond, msg) { if (!cond) throw new Error('FAIL: ' + msg); log(msg); }
 
@@ -23,6 +24,15 @@ async function waitForServer(url, ms = 60000) {
     await new Promise((r) => setTimeout(r, 500));
   }
   throw new Error('server did not start');
+}
+
+async function resetDatabase() {
+  const { Client } = require('pg');
+  const client = new Client({ connectionString: DB });
+  await client.connect();
+  await client.query('DROP SCHEMA public CASCADE; CREATE SCHEMA public;');
+  await client.query(fs.readFileSync(path.join(__dirname, '..', 'db', 'schema.sql'), 'utf8'));
+  await client.end();
 }
 
 async function main(browser) {
@@ -196,9 +206,9 @@ async function main(browser) {
 }
 
 (async () => {
-  for (const f of [DB, DB + '-wal', DB + '-shm']) fs.rmSync(f, { force: true });
+  await resetDatabase();
   const server = spawn(process.execPath, [require.resolve('next/dist/bin/next'), 'start', '-p', String(PORT)], {
-    env: { ...process.env, DB_PATH: DB, ALLOW_DEV_LOGIN: '1', ADMIN_HANDLES: 'founder', NODE_OPTIONS: '--no-warnings' },
+    env: { ...process.env, DATABASE_URL: DB, ALLOW_DEV_LOGIN: '1', ADMIN_HANDLES: 'founder', NODE_OPTIONS: '--no-warnings' },
     stdio: ['ignore', 'inherit', 'inherit'],
   });
   let browser;

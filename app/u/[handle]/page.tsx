@@ -11,7 +11,7 @@ export default async function Profile({ params, searchParams }: Props) {
   const { handle } = await params;
   const sp = await searchParams;
   const me = await currentUser();
-  const user = one<{ id: string; handle: string; name: string | null; bio: string; avatar_url: string | null; github_user_id: number | null; created_at: string }>(
+  const user = await one<{ id: string; handle: string; name: string | null; bio: string; avatar_url: string | null; github_user_id: number | null; created_at: string }>(
     `SELECT id, handle, name, bio, avatar_url, github_user_id, created_at FROM users WHERE handle = ? AND status = 'active'`,
     decodeURIComponent(handle),
   );
@@ -19,20 +19,20 @@ export default async function Profile({ params, searchParams }: Props) {
   const self = me?.id === user.id;
   const before = typeof sp.before === 'string' ? sp.before : undefined;
 
-  const leads = all<{ id: string; title: string; stage: string }>(
+  const leads = await all<{ id: string; title: string; stage: string }>(
     `SELECT id, title, stage FROM projects WHERE leader_id = ? AND visibility = 'public' ORDER BY created_at DESC`, user.id,
   );
-  const joined = all<{ id: string; title: string; stage: string; role: string }>(
+  const joined = await all<{ id: string; title: string; stage: string; role: string }>(
     `SELECT pr.id, pr.title, pr.stage, m.role FROM memberships m JOIN projects pr ON pr.id = m.project_id
      WHERE m.user_id = ? AND m.status = 'approved' AND pr.visibility = 'public' ORDER BY m.decided_at DESC`, user.id,
   );
   const requests = self
-    ? all<{ id: string; title: string; project_id: string; role: string; status: string }>(
+    ? await all<{ id: string; title: string; project_id: string; role: string; status: string }>(
         `SELECT m.id, pr.title, pr.id AS project_id, m.role, m.status FROM memberships m JOIN projects pr ON pr.id = m.project_id
          WHERE m.user_id = ? ORDER BY m.created_at DESC LIMIT 30`, user.id,
       )
     : [];
-  const posts = userPosts(user.id, me, before);
+  const posts = await userPosts(user.id, me, before);
 
   return (
     <>

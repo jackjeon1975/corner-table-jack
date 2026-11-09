@@ -9,17 +9,17 @@ export default async function Ops() {
   const me = await currentUser();
   if (!isAdmin(me)) notFound();
 
-  const reports = all<{
+  const reports = await all<{
     id: string; target_type: string; target_id: string; reason: string; details: string; contact_email: string | null;
     created_at: string; reporter: string | null;
   }>(
     `SELECT r.*, u.handle AS reporter FROM reports r LEFT JOIN users u ON u.id = r.reporter_id
      WHERE r.status = 'open' ORDER BY r.created_at`,
   );
-  const hidden = all<{ id: string; body: string; kind: string }>(
+  const hidden = await all<{ id: string; body: string; kind: string }>(
     `SELECT id, body, kind FROM posts WHERE visibility = 'hidden' ORDER BY updated_at DESC LIMIT 50`,
   );
-  const log = all<{ action: string; target_type: string; target_id: string; reason: string; created_at: string; actor: string | null }>(
+  const log = await all<{ action: string; target_type: string; target_id: string; reason: string; created_at: string; actor: string | null }>(
     `SELECT a.*, u.handle AS actor FROM audit_log a LEFT JOIN users u ON u.id = a.actor_id ORDER BY a.created_at DESC LIMIT 30`,
   );
   const link = (type: string, id: string) => (type === 'post' ? `/p/${id}` : type === 'project' ? `/projects/${id}` : null);

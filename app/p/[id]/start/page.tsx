@@ -12,7 +12,7 @@ export default async function StartProject({ params, searchParams }: Props) {
   const sp = await searchParams;
   const me = await currentUser();
   if (!me) redirect(`/login?next=${encodeURIComponent(`/p/${id}/start`)}`);
-  const post = getPost(id, me);
+  const post = await getPost(id, me);
   if (!post || post.kind !== 'idea' || post.author_id !== me.id) notFound();
   if (post.started_project_id) redirect(`/projects/${post.started_project_id}`);
   const continued = typeof sp.continue === 'string' ? sp.continue : '';

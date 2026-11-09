@@ -13,10 +13,10 @@ export default async function PostPage({ params, searchParams }: Props) {
   const { id } = await params;
   const sp = await searchParams;
   const me = await currentUser();
-  const post = getPost(id, me);
+  const post = await getPost(id, me);
   if (!post) notFound();
   const back = `/p/${id}`;
-  const replies = all<{ id: string; author_id: string; body: string; created_at: string; handle: string }>(
+  const replies = await all<{ id: string; author_id: string; body: string; created_at: string; handle: string }>(
     `SELECT r.id, r.author_id, r.body, r.created_at, u.handle FROM replies r JOIN users u ON u.id = r.author_id
      WHERE r.post_id = ? AND r.visibility = 'public' ORDER BY r.created_at`,
     id,

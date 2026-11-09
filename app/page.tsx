@@ -10,7 +10,7 @@ export default async function Home({ searchParams }: { searchParams: SP }) {
   const me = await currentUser();
   const tab = sp.tab === 'following' && me ? 'following' : 'latest';
   const before = typeof sp.before === 'string' ? sp.before : undefined;
-  const posts = feed({ me, tab, before });
+  const posts = await feed({ me, tab, before });
   const back = tab === 'following' ? '/?tab=following' : '/';
 
   return (

@@ -13,7 +13,7 @@ export type User = {
   avatar_url: string | null;
   bio: string;
   status: string;
-  is_dev: number;
+  is_dev: boolean;
   created_at: string;
 };
 
@@ -22,7 +22,7 @@ const sha256 = (s: string) => crypto.createHash('sha256').update(s).digest('hex'
 export async function currentUser(): Promise<User | null> {
   const token = (await cookies()).get(SESSION_COOKIE)?.value;
   if (!token) return null;
-  const user = one<User>(
+  const user = await one<User>(
     `SELECT u.* FROM sessions s JOIN users u ON u.id = s.user_id
      WHERE s.token_hash = ? AND s.expires_at > ? AND u.status = 'active'`,
     sha256(token), now(),
@@ -33,7 +33,7 @@ export async function currentUser(): Promise<User | null> {
 export async function startSession(userId: string) {
   const token = crypto.randomBytes(32).toString('base64url');
   const expires = new Date(Date.now() + SESSION_DAYS * 86400_000);
-  run(
+  await run(
     'INSERT INTO sessions (token_hash, user_id, created_at, expires_at) VALUES (?, ?, ?, ?)',
     sha256(token), userId, now(), expires.toISOString(),
   );
@@ -49,7 +49,7 @@ export async function startSession(userId: string) {
 export async function endSession() {
   const jar = await cookies();
   const token = jar.get(SESSION_COOKIE)?.value;
-  if (token) run('DELETE FROM sessions WHERE token_hash = ?', sha256(token));
+  if (token) await run('DELETE FROM sessions WHERE token_hash = ?', sha256(token));
   jar.delete(SESSION_COOKIE);
 }
 
@@ -76,10 +76,10 @@ export function safeNext(raw: unknown): string {
 }
 
 /** Find a free handle, appending a suffix if someone already holds it. */
-export function freeHandle(base: string, exceptUserId?: string): string {
+export async function freeHandle(base: string, exceptUserId?: string): Promise<string> {
   let candidate = base;
   for (let i = 2; i < 1000; i++) {
-    const taken = one<{ id: string }>('SELECT id FROM users WHERE handle = ?', candidate);
+    const taken = await one<{ id: string }>('SELECT id FROM users WHERE lower(handle) = lower(?)', candidate);
     if (!taken || taken.id === exceptUserId) return candidate;
     candidate = `${base}-${i}`;
   }

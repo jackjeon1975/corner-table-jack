@@ -29,9 +29,9 @@ async function requireUser(back: string): Promise<User> {
   return u;
 }
 
-function rateLimited(table: string, col: string, userId: string, max: number, windowMs: number): boolean {
+async function rateLimited(table: string, col: string, userId: string, max: number, windowMs: number): Promise<boolean> {
   const since = new Date(Date.now() - windowMs).toISOString();
-  const r = one<{ n: number }>(`SELECT COUNT(*) AS n FROM ${table} WHERE ${col} = ? AND created_at > ?`, userId, since);
+  const r = await one<{ n: number }>(`SELECT COUNT(*)::int AS n FROM ${table} WHERE ${col} = ? AND created_at > ?`, userId, since);
   return (r?.n ?? 0) >= max;
 }
 
@@ -50,8 +50,8 @@ function optionalLink(fd: FormData, back: string): string | null {
   return u;
 }
 
-function leaderProject(projectId: string, user: User, back: string) {
-  const p = one<{ id: string; leader_id: string; stage: string; repo_url: string | null }>(
+async function leaderProject(projectId: string, user: User, back: string) {
+  const p = await one<{ id: string; leader_id: string; stage: string; repo_url: string | null }>(
     `SELECT id, leader_id, stage, repo_url FROM projects WHERE id = ? AND visibility = 'public'`, projectId,
   );
   if (!p) fail(back, 'Project not found.');
@@ -59,9 +59,9 @@ function leaderProject(projectId: string, user: User, back: string) {
   return p;
 }
 
-function touchProject(projectId: string) {
+async function touchProject(projectId: string) {
   const t = now();
-  run('UPDATE projects SET last_update_at = ?, updated_at = ? WHERE id = ?', t, t, projectId);
+  await run('UPDATE projects SET last_update_at = ?, updated_at = ? WHERE id = ?', t, t, projectId);
 }
 
 // ---------- auth ----------
@@ -73,12 +73,12 @@ export async function devLogin(fd: FormData) {
   if (!/^[A-Za-z0-9](?:[A-Za-z0-9-]{0,38})$/.test(handle)) {
     fail(`/login?next=${encodeURIComponent(next)}`, 'Use letters, numbers and dashes (max 39).');
   }
-  let user = one<{ id: string; status: string }>('SELECT id, status FROM users WHERE handle = ?', handle);
+  let user = await one<{ id: string; status: string }>('SELECT id, status FROM users WHERE lower(handle) = lower(?)', handle);
   if (user && user.status !== 'active') fail('/login', 'That account is not active.');
   if (!user) {
     const id = newId();
-    run(
-      `INSERT INTO users (id, handle, name, is_dev, created_at) VALUES (?, ?, ?, 1, ?)`,
+    await run(
+      `INSERT INTO users (id, handle, name, is_dev, created_at) VALUES (?, ?, ?, TRUE, ?)`,
       id, handle, handle, now(),
     );
     user = { id, status: 'active' };
@@ -107,20 +107,20 @@ export async function createPost(fd: FormData) {
 
   if (projectId) {
     if (!PROJECT_KINDS.includes(kind)) fail(back, 'Unknown post type.');
-    const p = one<{ stage: string }>(`SELECT stage FROM projects WHERE id = ? AND visibility = 'public'`, projectId);
+    const p = await one<{ stage: string }>(`SELECT stage FROM projects WHERE id = ? AND visibility = 'public'`, projectId);
     if (!p) fail(back, 'Project not found.');
-    if (kind === 'update' && !isMember(projectId, user.id)) fail(back, 'Only the team can post updates.');
+    if (kind === 'update' && !await isMember(projectId, user.id)) fail(back, 'Only the team can post updates.');
   } else if (!HOME_KINDS.includes(kind)) {
     fail(back, 'Unknown post type.');
   }
-  if (rateLimited('posts', 'author_id', user.id, 20, 3600_000)) fail(back, 'Slow down a little — try again later.');
+  if (await rateLimited('posts', 'author_id', user.id, 20, 3600_000)) fail(back, 'Slow down a little — try again later.');
 
   const t = now();
-  run(
+  await run(
     `INSERT INTO posts (id, author_id, project_id, kind, body, link_url, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
     newId(), user.id, projectId, kind, body, link, t, t,
   );
-  if (projectId && kind === 'update') touchProject(projectId);
+  if (projectId && kind === 'update') await touchProject(projectId);
   redirect(back);
 }
 
@@ -128,22 +128,22 @@ export async function editPost(fd: FormData) {
   const id = str(fd, 'post_id');
   const back = `/p/${id}`;
   const user = await requireUser(back);
-  const post = one<{ author_id: string; visibility: string }>('SELECT author_id, visibility FROM posts WHERE id = ?', id);
+  const post = await one<{ author_id: string; visibility: string }>('SELECT author_id, visibility FROM posts WHERE id = ?', id);
   if (!post || post.visibility !== 'public' || post.author_id !== user.id) fail(back, 'You can only edit your own posts.');
   const body = text(fd, 'body', back, 'Post');
   const link = optionalLink(fd, back);
-  run('UPDATE posts SET body = ?, link_url = ?, updated_at = ? WHERE id = ?', body, link, now(), id);
+  await run('UPDATE posts SET body = ?, link_url = ?, updated_at = ? WHERE id = ?', body, link, now(), id);
   redirect(back);
 }
 
 export async function deletePost(fd: FormData) {
   const id = str(fd, 'post_id');
   const user = await requireUser(`/p/${id}`);
-  const post = one<{ author_id: string }>('SELECT author_id FROM posts WHERE id = ?', id);
+  const post = await one<{ author_id: string }>('SELECT author_id FROM posts WHERE id = ?', id);
   if (!post || post.author_id !== user.id) fail(`/p/${id}`, 'You can only delete your own posts.');
-  const project = one<{ id: string }>('SELECT id FROM projects WHERE origin_post_id = ?', id);
+  const project = await one<{ id: string }>('SELECT id FROM projects WHERE origin_post_id = ?', id);
   if (project) fail(`/p/${id}`, 'This idea started a project. End the project instead of deleting the idea.');
-  run(`UPDATE posts SET visibility = 'deleted', updated_at = ? WHERE id = ?`, now(), id);
+  await run(`UPDATE posts SET visibility = 'deleted', updated_at = ? WHERE id = ?`, now(), id);
   redirect('/');
 }
 
@@ -151,25 +151,25 @@ export async function createReply(fd: FormData) {
   const postId = str(fd, 'post_id');
   const back = `/p/${postId}`;
   const user = await requireUser(back);
-  const ok = one(
+  const ok = await one(
     `SELECT 1 FROM posts p LEFT JOIN projects pr ON pr.id = p.project_id
      WHERE p.id = ? AND p.visibility = 'public' AND (p.project_id IS NULL OR pr.visibility = 'public')`,
     postId,
   );
   if (!ok) fail('/', 'Post not found.');
   const body = text(fd, 'body', back, 'Reply');
-  if (rateLimited('replies', 'author_id', user.id, 60, 3600_000)) fail(back, 'Slow down a little — try again later.');
-  run('INSERT INTO replies (id, post_id, author_id, body, created_at) VALUES (?, ?, ?, ?, ?)', newId(), postId, user.id, body, now());
+  if (await rateLimited('replies', 'author_id', user.id, 60, 3600_000)) fail(back, 'Slow down a little — try again later.');
+  await run('INSERT INTO replies (id, post_id, author_id, body, created_at) VALUES (?, ?, ?, ?, ?)', newId(), postId, user.id, body, now());
   redirect(back);
 }
 
 export async function deleteReply(fd: FormData) {
   const id = str(fd, 'reply_id');
-  const r = one<{ post_id: string; author_id: string }>('SELECT post_id, author_id FROM replies WHERE id = ?', id);
+  const r = await one<{ post_id: string; author_id: string }>('SELECT post_id, author_id FROM replies WHERE id = ?', id);
   const back = r ? `/p/${r.post_id}` : '/';
   const user = await requireUser(back);
   if (!r || r.author_id !== user.id) fail(back, 'You can only delete your own replies.');
-  run(`UPDATE replies SET visibility = 'deleted' WHERE id = ?`, id);
+  await run(`UPDATE replies SET visibility = 'deleted' WHERE id = ?`, id);
   redirect(back);
 }
 
@@ -177,11 +177,11 @@ export async function toggleCheer(fd: FormData) {
   const back = backOf(fd);
   const user = await requireUser(back);
   const postId = str(fd, 'post_id');
-  const exists = one('SELECT 1 FROM cheers WHERE post_id = ? AND user_id = ?', postId, user.id);
-  if (exists) run('DELETE FROM cheers WHERE post_id = ? AND user_id = ?', postId, user.id);
+  const exists = await one('SELECT 1 FROM cheers WHERE post_id = ? AND user_id = ?', postId, user.id);
+  if (exists) await run('DELETE FROM cheers WHERE post_id = ? AND user_id = ?', postId, user.id);
   else {
-    const ok = one(`SELECT 1 FROM posts WHERE id = ? AND visibility = 'public'`, postId);
-    if (ok) run('INSERT OR IGNORE INTO cheers (post_id, user_id, created_at) VALUES (?, ?, ?)', postId, user.id, now());
+    const ok = await one(`SELECT 1 FROM posts WHERE id = ? AND visibility = 'public'`, postId);
+    if (ok) await run('INSERT INTO cheers (post_id, user_id, created_at) VALUES (?, ?, ?) ON CONFLICT DO NOTHING', postId, user.id, now());
   }
   redirect(back);
 }
@@ -192,12 +192,12 @@ export async function startProject(fd: FormData) {
   const postId = str(fd, 'post_id');
   const back = `/p/${postId}/start`;
   const user = await requireUser(back);
-  const post = one<{ author_id: string; kind: string; visibility: string; project_id: string | null }>(
+  const post = await one<{ author_id: string; kind: string; visibility: string; project_id: string | null }>(
     'SELECT author_id, kind, visibility, project_id FROM posts WHERE id = ?', postId,
   );
   if (!post || post.visibility !== 'public' || post.kind !== 'idea') fail('/', 'Only Idea posts can become projects.');
   if (post.author_id !== user.id) fail(`/p/${postId}`, 'Only the person who shared the idea can start it.');
-  const existing = one<{ id: string }>('SELECT id FROM projects WHERE origin_post_id = ?', postId);
+  const existing = await one<{ id: string }>('SELECT id FROM projects WHERE origin_post_id = ?', postId);
   if (existing) redirect(`/projects/${existing.id}`);
 
   const title = str(fd, 'title');
@@ -209,18 +209,18 @@ export async function startProject(fd: FormData) {
 
   const id = newId();
   try {
-    tx(() => {
+    await tx(async () => {
       const t = now();
-      run(
+      await run(
         `INSERT INTO projects (id, origin_post_id, leader_id, title, concept, first_goal, continued_from, last_update_at, created_at, updated_at)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         id, postId, user.id, title, concept, goal, continued, t, t, t,
       );
-      run('UPDATE posts SET project_id = ? WHERE id = ?', id, postId);
-      run('INSERT OR IGNORE INTO follows (project_id, user_id, created_at) VALUES (?, ?, ?)', id, user.id, t);
+      await run('UPDATE posts SET project_id = ? WHERE id = ?', id, postId);
+      await run('INSERT INTO follows (project_id, user_id, created_at) VALUES (?, ?, ?) ON CONFLICT DO NOTHING', id, user.id, t);
     });
   } catch {
-    const again = one<{ id: string }>('SELECT id FROM projects WHERE origin_post_id = ?', postId);
+    const again = await one<{ id: string }>('SELECT id FROM projects WHERE origin_post_id = ?', postId);
     if (again) redirect(`/projects/${again.id}`);
     fail(back, 'Could not start the project. Try again.');
   }
@@ -231,12 +231,12 @@ export async function editProject(fd: FormData) {
   const projectId = str(fd, 'project_id');
   const back = `/projects/${projectId}`;
   const user = await requireUser(back);
-  leaderProject(projectId, user, back);
+  await leaderProject(projectId, user, back);
   const title = str(fd, 'title');
   if (!title || title.length > 120) fail(back, 'Name must be 1–120 characters.');
   const concept = text(fd, 'concept', back, 'Concept');
   const goal = text(fd, 'first_goal', back, 'First goal');
-  run('UPDATE projects SET title = ?, concept = ?, first_goal = ?, updated_at = ? WHERE id = ?', title, concept, goal, now(), projectId);
+  await run('UPDATE projects SET title = ?, concept = ?, first_goal = ?, updated_at = ? WHERE id = ?', title, concept, goal, now(), projectId);
   redirect(withMsg(back, 'ok', 'Saved.'));
 }
 
@@ -244,9 +244,9 @@ export async function setRecruiting(fd: FormData) {
   const projectId = str(fd, 'project_id');
   const back = `/projects/${projectId}`;
   const user = await requireUser(back);
-  const p = leaderProject(projectId, user, back);
+  const p = await leaderProject(projectId, user, back);
   if (p.stage === 'ended') fail(back, 'This project has ended.');
-  run('UPDATE projects SET recruiting = ?, updated_at = ? WHERE id = ?', str(fd, 'recruiting') === '1' ? 1 : 0, now(), projectId);
+  await run('UPDATE projects SET recruiting = ?, updated_at = ? WHERE id = ?', str(fd, 'recruiting') === '1', now(), projectId);
   redirect(back);
 }
 
@@ -263,7 +263,7 @@ export async function changeStage(fd: FormData) {
   const projectId = str(fd, 'project_id');
   const back = `/projects/${projectId}`;
   const user = await requireUser(back);
-  const p = leaderProject(projectId, user, back);
+  const p = await leaderProject(projectId, user, back);
   const target = str(fd, 'stage');
   if (!STAGES.includes(target as (typeof STAGES)[number]) || target === p.stage) fail(back, 'Pick a different stage.');
   if (p.stage === 'ended') fail(back, 'An ended project cannot change stage. Start a new one that continues it.');
@@ -272,7 +272,7 @@ export async function changeStage(fd: FormData) {
   let repo = p.repo_url;
   let result: string | null = null;
   if (target === 'design') {
-    const q = one(`SELECT 1 FROM posts WHERE project_id = ? AND kind = 'question' AND visibility = 'public'`, projectId);
+    const q = await one(`SELECT 1 FROM posts WHERE project_id = ? AND kind = 'question' AND visibility = 'public'`, projectId);
     if (!q) fail(back, 'Post at least one design Question before moving to Design.');
   }
   if (target === 'building') {
@@ -287,20 +287,20 @@ export async function changeStage(fd: FormData) {
   if (target === 'paused' && !note) fail(back, 'Say in a line why the project is pausing.');
   if (target === 'ended' && !note) fail(back, 'Ending needs a retrospective: what you did, why it stopped, what you learned.');
 
-  tx(() => {
+  await tx(async () => {
     const t = now();
-    run(
+    await run(
       `UPDATE projects SET stage = ?, repo_url = ?, result_url = COALESCE(?, result_url),
-         recruiting = CASE WHEN ? = 'ended' THEN 0 ELSE recruiting END, updated_at = ? WHERE id = ?`,
+         recruiting = CASE WHEN ? = 'ended' THEN FALSE ELSE recruiting END, updated_at = ? WHERE id = ?`,
       target, repo, result, target, t, projectId,
     );
     const body = target === 'ended' ? note : [STAGE_MESSAGE[target], note].filter(Boolean).join('\n\n');
-    run(
+    await run(
       `INSERT INTO posts (id, author_id, project_id, kind, body, link_url, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
       newId(), user.id, projectId, target === 'ended' ? 'retro' : 'update', body,
       target === 'shared' ? result : target === 'building' ? repo : null, t, t,
     );
-    touchProject(projectId);
+    await touchProject(projectId);
   });
   redirect(back);
 }
@@ -309,23 +309,23 @@ export async function addNeed(fd: FormData) {
   const projectId = str(fd, 'project_id');
   const back = `/projects/${projectId}`;
   const user = await requireUser(back);
-  leaderProject(projectId, user, back);
+  await leaderProject(projectId, user, back);
   const label = str(fd, 'label');
   if (!label || label.length > 200) fail(back, 'Describe the help in 1–200 characters.');
-  run('INSERT INTO needs (id, project_id, label, created_at) VALUES (?, ?, ?, ?)', newId(), projectId, label, now());
+  await run('INSERT INTO needs (id, project_id, label, created_at) VALUES (?, ?, ?, ?)', newId(), projectId, label, now());
   redirect(back);
 }
 
 export async function updateNeed(fd: FormData) {
   const needId = str(fd, 'need_id');
-  const n = one<{ project_id: string }>('SELECT project_id FROM needs WHERE id = ?', needId);
+  const n = await one<{ project_id: string }>('SELECT project_id FROM needs WHERE id = ?', needId);
   const back = n ? `/projects/${n.project_id}` : '/';
   const user = await requireUser(back);
   if (!n) fail(back, 'Not found.');
-  leaderProject(n.project_id, user, back);
+  await leaderProject(n.project_id, user, back);
   const op = str(fd, 'op');
-  if (op === 'delete') run('DELETE FROM needs WHERE id = ?', needId);
-  else run('UPDATE needs SET status = ? WHERE id = ?', op === 'met' ? 'met' : 'open', needId);
+  if (op === 'delete') await run('DELETE FROM needs WHERE id = ?', needId);
+  else await run('UPDATE needs SET status = ? WHERE id = ?', op === 'met' ? 'met' : 'open', needId);
   redirect(back);
 }
 
@@ -333,10 +333,10 @@ export async function toggleFollow(fd: FormData) {
   const projectId = str(fd, 'project_id');
   const back = backOf(fd);
   const user = await requireUser(back);
-  const exists = one('SELECT 1 FROM follows WHERE project_id = ? AND user_id = ?', projectId, user.id);
-  if (exists) run('DELETE FROM follows WHERE project_id = ? AND user_id = ?', projectId, user.id);
-  else if (one(`SELECT 1 FROM projects WHERE id = ? AND visibility = 'public'`, projectId)) {
-    run('INSERT OR IGNORE INTO follows (project_id, user_id, created_at) VALUES (?, ?, ?)', projectId, user.id, now());
+  const exists = await one('SELECT 1 FROM follows WHERE project_id = ? AND user_id = ?', projectId, user.id);
+  if (exists) await run('DELETE FROM follows WHERE project_id = ? AND user_id = ?', projectId, user.id);
+  else if (await one(`SELECT 1 FROM projects WHERE id = ? AND visibility = 'public'`, projectId)) {
+    await run('INSERT INTO follows (project_id, user_id, created_at) VALUES (?, ?, ?) ON CONFLICT DO NOTHING', projectId, user.id, now());
   }
   redirect(back);
 }
@@ -347,7 +347,7 @@ export async function applyToJoin(fd: FormData) {
   const projectId = str(fd, 'project_id');
   const back = `/projects/${projectId}`;
   const user = await requireUser(back);
-  const p = one<{ leader_id: string; recruiting: number; stage: string }>(
+  const p = await one<{ leader_id: string; recruiting: boolean; stage: string }>(
     `SELECT leader_id, recruiting, stage FROM projects WHERE id = ? AND visibility = 'public'`, projectId,
   );
   if (!p) fail('/', 'Project not found.');
@@ -356,9 +356,9 @@ export async function applyToJoin(fd: FormData) {
   const role = str(fd, 'role');
   if (!role || role.length > 60) fail(back, 'Name the role you want (60 characters max).');
   const intro = text(fd, 'intro', back, 'Intro');
-  if (rateLimited('memberships', 'user_id', user.id, 10, 86400_000)) fail(back, 'Too many requests today.');
+  if (await rateLimited('memberships', 'user_id', user.id, 10, 86400_000)) fail(back, 'Too many requests today.');
   try {
-    run(
+    await run(
       `INSERT INTO memberships (id, project_id, user_id, role, intro, status, created_at) VALUES (?, ?, ?, ?, ?, 'pending', ?)`,
       newId(), projectId, user.id, role, intro, now(),
     );
@@ -370,14 +370,14 @@ export async function applyToJoin(fd: FormData) {
 
 export async function decideMembership(fd: FormData) {
   const id = str(fd, 'membership_id');
-  const m = one<{ project_id: string; user_id: string; status: string }>(
+  const m = await one<{ project_id: string; user_id: string; status: string }>(
     'SELECT project_id, user_id, status FROM memberships WHERE id = ?', id,
   );
   const back = m ? `/projects/${m.project_id}` : '/';
   const user = await requireUser(back);
   if (!m) fail(back, 'Request not found.');
   const op = str(fd, 'op');
-  const leader = one<{ leader_id: string }>('SELECT leader_id FROM projects WHERE id = ?', m.project_id)?.leader_id;
+  const leader = (await one<{ leader_id: string }>('SELECT leader_id FROM projects WHERE id = ?', m.project_id))?.leader_id;
   const isLeader = leader === user.id;
   const isSelf = m.user_id === user.id;
 
@@ -394,7 +394,7 @@ export async function decideMembership(fd: FormData) {
   if (!step || !step.who) fail(back, 'Not allowed.');
   const role = str(fd, 'role');
   if (op === 'approve' && role.length > 60) fail(back, 'Role is too long.');
-  const res = run(
+  const res = await run(
     `UPDATE memberships SET status = ?, role = CASE WHEN ? <> '' THEN ? ELSE role END, decided_at = ?
      WHERE id = ? AND status = ?`,
     step.to, op === 'approve' ? role : '', role, now(), id, step.from,
@@ -413,8 +413,8 @@ export async function reportContent(fd: FormData) {
   const reason = str(fd, 'reason');
   if (!['post', 'reply', 'project'].includes(type) || !id) fail(back, 'Nothing to report.');
   if (!['spam', 'rights', 'dangerous', 'other'].includes(reason)) fail(back, 'Pick a reason.');
-  if (rateLimited('reports', 'reporter_id', user.id, 10, 86400_000)) fail(back, 'Too many reports today.');
-  run(
+  if (await rateLimited('reports', 'reporter_id', user.id, 10, 86400_000)) fail(back, 'Too many reports today.');
+  await run(
     `INSERT INTO reports (id, target_type, target_id, reason, details, reporter_id, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)`,
     newId(), type, id, reason, str(fd, 'details').slice(0, 5000), user.id, now(),
   );
@@ -427,7 +427,7 @@ export async function rightsReport(fd: FormData) {
   const details = str(fd, 'details');
   if (!url || !email.includes('@') || !details) fail('/report', 'Please fill in every field.');
   const m = url.match(/\/(p|projects)\/([0-9a-f-]{36})/i);
-  run(
+  await run(
     `INSERT INTO reports (id, target_type, target_id, reason, details, contact_email, created_at) VALUES (?, ?, ?, 'rights', ?, ?, ?)`,
     newId(), m ? (m[1] === 'p' ? 'post' : 'project') : 'url', m ? m[2] : url.slice(0, 500),
     `${details.slice(0, 10000)}\n\nURL: ${url.slice(0, 500)}`, email.slice(0, 320), now(),
@@ -448,11 +448,11 @@ export async function moderate(fd: FormData) {
   const op = str(fd, 'op'); // hide | restore
   const reason = str(fd, 'reason');
   const vis = op === 'hide' ? 'hidden' : 'public';
-  if (type === 'post') run(`UPDATE posts SET visibility = ? WHERE id = ? AND visibility <> 'deleted'`, vis, id);
-  else if (type === 'reply') run(`UPDATE replies SET visibility = ? WHERE id = ? AND visibility <> 'deleted'`, vis, id);
-  else if (type === 'project') run('UPDATE projects SET visibility = ? WHERE id = ?', vis, id);
+  if (type === 'post') await run(`UPDATE posts SET visibility = ? WHERE id = ? AND visibility <> 'deleted'`, vis, id);
+  else if (type === 'reply') await run(`UPDATE replies SET visibility = ? WHERE id = ? AND visibility <> 'deleted'`, vis, id);
+  else if (type === 'project') await run('UPDATE projects SET visibility = ? WHERE id = ?', vis, id);
   else fail('/ops', 'Unknown target.');
-  audit(admin.id, op, type, id, reason);
+  await audit(admin.id, op, type, id, reason);
   redirect('/ops');
 }
 
@@ -460,8 +460,8 @@ export async function resolveReport(fd: FormData) {
   const admin = await requireAdmin();
   const id = str(fd, 'report_id');
   const status = str(fd, 'status') === 'actioned' ? 'actioned' : 'dismissed';
-  run('UPDATE reports SET status = ?, resolved_at = ?, resolved_by = ? WHERE id = ?', status, now(), admin.id, id);
-  audit(admin.id, `report_${status}`, 'report', id);
+  await run('UPDATE reports SET status = ?, resolved_at = ?, resolved_by = ? WHERE id = ?', status, now(), admin.id, id);
+  await audit(admin.id, `report_${status}`, 'report', id);
   redirect('/ops');
 }
 
@@ -471,29 +471,29 @@ export async function updateProfile(fd: FormData) {
   const user = await requireUser('/settings');
   const bio = str(fd, 'bio');
   if (bio.length > 500) fail('/settings', 'Keep the intro under 500 characters.');
-  run('UPDATE users SET bio = ? WHERE id = ?', bio, user.id);
+  await run('UPDATE users SET bio = ? WHERE id = ?', bio, user.id);
   redirect(withMsg('/settings', 'ok', 'Saved.'));
 }
 
 export async function deleteAccount(fd: FormData) {
   const user = await requireUser('/settings');
   if (str(fd, 'confirm') !== user.handle) fail('/settings', 'Type your handle to confirm.');
-  tx(() => {
+  await tx(async () => {
     const t = now();
-    const ghost = freeHandle(`deleted-${user.id.slice(0, 8)}`);
-    run(
+    const ghost = await freeHandle(`deleted-${user.id.slice(0, 8)}`);
+    await run(
       `UPDATE users SET status = 'deleted', handle = ?, name = NULL, avatar_url = NULL, bio = '', github_user_id = NULL WHERE id = ?`,
       ghost, user.id,
     );
-    run(`UPDATE posts SET visibility = 'deleted', updated_at = ? WHERE author_id = ? AND visibility = 'public'`, t, user.id);
-    run(`UPDATE replies SET visibility = 'deleted' WHERE author_id = ?`, user.id);
-    run(`UPDATE memberships SET status = 'left', decided_at = ? WHERE user_id = ? AND status = 'approved'`, t, user.id);
-    run(`UPDATE memberships SET status = 'withdrawn', decided_at = ? WHERE user_id = ? AND status = 'pending'`, t, user.id);
-    run(`UPDATE projects SET stage = 'ended', recruiting = 0, updated_at = ? WHERE leader_id = ? AND stage <> 'ended'`, t, user.id);
-    run('DELETE FROM follows WHERE user_id = ?', user.id);
-    run('DELETE FROM cheers WHERE user_id = ?', user.id);
-    run('DELETE FROM sessions WHERE user_id = ?', user.id);
-    audit(user.id, 'account_deleted', 'user', user.id);
+    await run(`UPDATE posts SET visibility = 'deleted', updated_at = ? WHERE author_id = ? AND visibility = 'public'`, t, user.id);
+    await run(`UPDATE replies SET visibility = 'deleted' WHERE author_id = ?`, user.id);
+    await run(`UPDATE memberships SET status = 'left', decided_at = ? WHERE user_id = ? AND status = 'approved'`, t, user.id);
+    await run(`UPDATE memberships SET status = 'withdrawn', decided_at = ? WHERE user_id = ? AND status = 'pending'`, t, user.id);
+    await run(`UPDATE projects SET stage = 'ended', recruiting = FALSE, updated_at = ? WHERE leader_id = ? AND stage <> 'ended'`, t, user.id);
+    await run('DELETE FROM follows WHERE user_id = ?', user.id);
+    await run('DELETE FROM cheers WHERE user_id = ?', user.id);
+    await run('DELETE FROM sessions WHERE user_id = ?', user.id);
+    await audit(user.id, 'account_deleted', 'user', user.id);
   });
   await endSession();
   redirect('/');

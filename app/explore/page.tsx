@@ -13,8 +13,8 @@ export default async function Explore({ searchParams }: { searchParams: SP }) {
   const stage = typeof sp.stage === 'string' && (STAGES as readonly string[]).includes(sp.stage) ? sp.stage : '';
   const recruiting = sp.recruiting === '1';
   const help = sp.help === '1';
-  const projects = listProjects({ q, stage, recruiting, help });
-  const posts = q ? searchPosts(q, me) : [];
+  const projects = await listProjects({ q, stage, recruiting, help });
+  const posts = q ? await searchPosts(q, me) : [];
 
   return (
     <>

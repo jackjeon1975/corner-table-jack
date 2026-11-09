@@ -13,10 +13,20 @@ env042@gmail.com
 
 ## Run it
 
-Requires Node.js 22.5+ (uses the built-in `node:sqlite`, no database server needed).
+Requires Node.js 20+ and PostgreSQL (local Postgres or a Supabase project).
 
 ```bash
 npm install
+```
+
+```bash
+cp .env.example .env.local
+```
+
+Set `DATABASE_URL` in `.env.local`, then create the tables:
+
+```bash
+npm run db:migrate
 ```
 
 ```bash
@@ -24,7 +34,6 @@ npm run dev
 ```
 
 Open http://localhost:3000. In dev mode you can sign in with **Dev login** (any handle, no password).
-Data is stored in `./data/corner-table.db`.
 
 Production:
 
@@ -41,7 +50,8 @@ following feed, reports and moderation, plain-text rendering, mobile layout):
 npm run build && npm run test:e2e
 ```
 
-It starts its own server on port 3100 with a throwaway database. The same test runs on every push
+It starts its own server on port 3100 and **wipes** the database in `TEST_DATABASE_URL`
+(default `postgres://ct:ct@localhost:5432/corner_table_test`) — never point it at real data. The same test runs on every push
 in GitHub Actions (`.github/workflows/ci.yml`), and screenshots are attached to the run.
 
 ## Configuration
@@ -54,7 +64,8 @@ Copy `.env.example` to `.env.local` and fill in:
 | `GITHUB_CLIENT_ID` / `GITHUB_CLIENT_SECRET` | GitHub sign-in (OAuth App or GitHub App). Only the public profile is read |
 | `ADMIN_HANDLES` | Comma-separated handles that can open `/ops` (moderation) |
 | `ALLOW_DEV_LOGIN` | `1` to allow dev login in production (keep `0` for real launches) |
-| `DB_PATH` | SQLite file path |
+| `DATABASE_URL` | PostgreSQL connection string. On Vercel + Supabase use the transaction pooler (port 6543) |
+| `DATABASE_SSL` | `disable` or `no-verify` to override TLS (default: TLS for remote hosts) |
 
 ## What's in the MVP
 
@@ -71,6 +82,6 @@ Copy `.env.example` to `.env.local` and fill in:
 
 ## Notes for the next step
 
-- SQLite keeps the MVP self-contained. All queries live in `lib/db.ts` and `lib/queries.ts`, so moving to Postgres (e.g. Supabase) is a contained change. SQLite on serverless hosts (e.g. Vercel) does **not** persist; use a VM/container host or switch to Postgres before deploying there.
+- Schema lives in `db/schema.sql` (idempotent). Row Level Security is enabled on every table with no policies, so Supabase's public REST API cannot read or write them; the app connects server-side only.
 - Not yet built (PRD P1): GitHub release import, "decided" marks on Questions, continuing an ended project, translation, notifications.
 - `/ops` has no MFA yet — required before a public launch.

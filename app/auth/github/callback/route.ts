@@ -52,16 +52,16 @@ export async function GET(req: NextRequest) {
   if (!gh.id || !gh.login) return bad(req, 'Could not read your GitHub profile.');
 
   // Accounts are keyed by GitHub's numeric id; the login name is display data and may change.
-  let user = one<{ id: string; status: string }>('SELECT id, status FROM users WHERE github_user_id = ?', gh.id);
+  let user = await one<{ id: string; status: string }>('SELECT id, status FROM users WHERE github_user_id = ?', gh.id);
   if (user && user.status !== 'active') return bad(req, 'This account is not active.');
   if (user) {
-    run('UPDATE users SET handle = ?, name = ?, avatar_url = ? WHERE id = ?',
-      freeHandle(gh.login, user.id), gh.name ?? null, gh.avatar_url ?? null, user.id);
+    await run('UPDATE users SET handle = ?, name = ?, avatar_url = ? WHERE id = ?',
+      await freeHandle(gh.login, user.id), gh.name ?? null, gh.avatar_url ?? null, user.id);
   } else {
     const id = newId();
-    run(
+    await run(
       'INSERT INTO users (id, github_user_id, handle, name, avatar_url, created_at) VALUES (?, ?, ?, ?, ?, ?)',
-      id, gh.id, freeHandle(gh.login), gh.name ?? null, gh.avatar_url ?? null, now(),
+      id, gh.id, await freeHandle(gh.login), gh.name ?? null, gh.avatar_url ?? null, now(),
     );
     user = { id, status: 'active' };
   }

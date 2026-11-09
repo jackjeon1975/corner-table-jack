@@ -5,9 +5,26 @@ import { currentUser, isAdmin } from '@/lib/auth';
 
 export const dynamic = 'force-dynamic';
 
+const SITE_URL = process.env.APP_URL || 'http://localhost:3000';
+const DESCRIPTION =
+  'Share an idea before you build it. Design it in the open, find teammates, and let fans watch it grow.';
+
 export const metadata: Metadata = {
-  title: 'Corner Table',
-  description: 'Ideas get a table before they get built.',
+  metadataBase: new URL(SITE_URL),
+  title: 'Corner Table — Ideas get a table before they get built.',
+  description: DESCRIPTION,
+  openGraph: {
+    title: 'Corner Table',
+    description: DESCRIPTION,
+    url: '/',
+    siteName: 'Corner Table',
+    type: 'website',
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'Corner Table — Ideas get a table before they get built.',
+    description: DESCRIPTION,
+  },
 };
 
 export const viewport: Viewport = { width: 'device-width', initialScale: 1 };

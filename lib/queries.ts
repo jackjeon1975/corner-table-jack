@@ -185,3 +185,46 @@ export async function awaitingReply(me: User | null, limit = 3): Promise<PostRow
     me?.id ?? '', limit,
   );
 }
+
+export type ActiveTable = { id: string; title: string; stage: string; updates: number; days: string[] };
+
+/** Tables with the most team Updates in the last 7 days, plus the days they posted (for a streak). */
+export async function activeTables(limit = 3): Promise<(ActiveTable & { streak: number })[]> {
+  const since = new Date(Date.now() - 30 * 86400_000).toISOString();
+  const week = new Date(Date.now() - 7 * 86400_000).toISOString();
+  const rows = await all<ActiveTable>(
+    `SELECT pr.id, pr.title, pr.stage,
+        COUNT(*) FILTER (WHERE p.created_at > ?)::int AS updates,
+        ARRAY_AGG(DISTINCT SUBSTR(p.created_at, 1, 10)) AS days
+     FROM projects pr JOIN posts p ON p.project_id = pr.id
+     WHERE pr.visibility = 'public' AND p.kind = 'update' AND p.visibility = 'public' AND p.created_at > ?
+     GROUP BY pr.id, pr.title, pr.stage
+     HAVING COUNT(*) FILTER (WHERE p.created_at > ?) > 0
+     ORDER BY updates DESC, MAX(p.created_at) DESC LIMIT ?`,
+    week, since, week, limit,
+  );
+  return rows.map((r) => ({ ...r, streak: streakOf(r.days) }));
+}
+
+/** Consecutive UTC days with at least one Update, counting back from today (or yesterday). */
+export function streakOf(days: string[]): number {
+  const set = new Set(days);
+  const day = (offset: number) => new Date(Date.now() - offset * 86400_000).toISOString().slice(0, 10);
+  let start = set.has(day(0)) ? 0 : set.has(day(1)) ? 1 : -1;
+  if (start < 0) return 0;
+  let n = 0;
+  while (set.has(day(start + n))) n++;
+  return n;
+}
+
+/** Most used #topics in public posts from the last 60 days. */
+export async function popularTopics(limit = 12): Promise<{ tag: string; uses: number }[]> {
+  const since = new Date(Date.now() - 60 * 86400_000).toISOString();
+  return all<{ tag: string; uses: number }>(
+    `SELECT LOWER(m[1]) AS tag, COUNT(*)::int AS uses
+     FROM posts p, REGEXP_MATCHES(p.body, '#([[:alnum:]_-]{2,30})', 'g') AS m
+     WHERE p.visibility = 'public' AND p.created_at > ?
+     GROUP BY 1 ORDER BY uses DESC, tag LIMIT ?`,
+    since, limit,
+  );
+}

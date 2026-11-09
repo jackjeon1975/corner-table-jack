@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { currentUser } from '@/lib/auth';
-import { feed, cursorOf, PAGE_SIZE } from '@/lib/queries';
+import { feed, awaitingReply, cursorOf, PAGE_SIZE } from '@/lib/queries';
+import { timeAgo } from '@/lib/format';
 import { Composer, Notice, PostCard } from '@/components/ui';
 import { Landing } from '@/components/landing';
 
@@ -13,6 +14,7 @@ export default async function Home({ searchParams }: { searchParams: SP }) {
   const before = typeof sp.before === 'string' ? sp.before : undefined;
   const posts = await feed({ me, tab, before });
   const back = tab === 'following' ? '/?tab=following' : '/';
+  const waiting = tab === 'latest' && !before ? await awaitingReply(me) : [];
 
   return (
     <>
@@ -21,6 +23,21 @@ export default async function Home({ searchParams }: { searchParams: SP }) {
         <Composer me={me} back={back} />
       ) : (
         <Landing />
+      )}
+
+      {waiting.length > 0 && (
+        <section className="waiting" aria-labelledby="waiting-title">
+          <div className="section-title" id="waiting-title">Waiting for a first reply</div>
+          <ul className="list">
+            {waiting.map((w) => (
+              <li key={w.id}>
+                <Link href={`/p/${w.id}`} className="waiting-body">{w.body.split('\n')[0].slice(0, 90)}</Link>
+                <span className="small muted">@{w.handle} · {timeAgo(w.created_at)}</span>
+              </li>
+            ))}
+          </ul>
+          <p className="small muted waiting-note">A question or a risk you spot helps more than a cheer.</p>
+        </section>
       )}
 
       <nav className="tabs" aria-label="Feed">

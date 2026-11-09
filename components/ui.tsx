@@ -108,7 +108,7 @@ export function Composer({ me, back, projectId, canUpdate, placeholder }: Compos
       <label htmlFor="composer-body" className="muted" style={{ fontWeight: 500, marginTop: 0 }}>
         {projectId ? 'Say something at this table' : `What's on your mind, @${me.handle}?`}
       </label>
-      <textarea id="composer-body" name="body" required placeholder={placeholder ?? 'Share an idea, a question, or where you are.'} />
+      <textarea id="composer-body" name="body" required placeholder={placeholder ?? (projectId ? 'Share a question, a risk, or where you are.' : 'An idea? Say what it is, who it\'s for, what you\'re unsure about, and who you\'re looking for.')} />
       <div className="row">
         <select name="kind" aria-label="Post type" defaultValue={projectId && canUpdate ? 'update' : 'note'}>
           {kinds.map(([v, l]) => (

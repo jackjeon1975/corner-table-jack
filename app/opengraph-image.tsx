@@ -14,7 +14,11 @@ export default function OgImage() {
         }}
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: 18, fontSize: 40, fontWeight: 700 }}>
-          <div style={{ width: 28, height: 28, borderRadius: 14, background: '#8a4b2a' }} />
+          <svg width='56' height='56' viewBox='0 0 32 32'>
+            <rect width='32' height='32' rx='8' fill='#8a4b2a' />
+            <path d='M8.5 23V8.5H23' stroke='#faf7f2' strokeWidth='3' fill='none' strokeLinecap='round' strokeLinejoin='round' />
+            <circle cx='19.5' cy='19.5' r='5' fill='#faf7f2' />
+          </svg>
           Corner Table
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>

@@ -7,10 +7,20 @@ import { AsyncLocalStorage } from 'node:async_hooks';
 
 type Param = string | number | boolean | null;
 
+/** Supabase root CA from DATABASE_CA_CERT (PEM, PEM with literal "\\n", or base64). */
+function caCert(): string | undefined {
+  const raw = process.env.DATABASE_CA_CERT?.trim();
+  if (!raw) return undefined;
+  const text = raw.startsWith('-----BEGIN') ? raw : Buffer.from(raw, 'base64').toString('utf8');
+  return text.replace(/\\n/g, '\n').trim();
+}
+
 function sslOption(url: string) {
   const mode = process.env.DATABASE_SSL;
   if (mode === 'disable') return false;
   if (mode === 'no-verify') return { rejectUnauthorized: false };
+  const ca = caCert();
+  if (ca) return { ca, rejectUnauthorized: true };
   try {
     const host = new URL(url).hostname;
     if (host === 'localhost' || host === '127.0.0.1') return false;

@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { currentUser } from '@/lib/auth';
 import { feed, cursorOf, PAGE_SIZE } from '@/lib/queries';
 import { Composer, Notice, PostCard } from '@/components/ui';
+import { Landing } from '@/components/landing';
 
 type SP = Promise<Record<string, string | string[] | undefined>>;
 
@@ -19,14 +20,7 @@ export default async function Home({ searchParams }: { searchParams: SP }) {
       {me ? (
         <Composer me={me} back={back} />
       ) : (
-        <div className="card">
-          <b>Ideas get a table before they get built.</b>
-          <p className="muted small" style={{ margin: '6px 0 10px' }}>
-            Share an idea before you build it. Design it in the open with people who care, find teammates,
-            and let fans watch it grow.
-          </p>
-          <Link className="btn" href="/login">Pull up a chair</Link>
-        </div>
+        <Landing />
       )}
 
       <nav className="tabs" aria-label="Feed">
@@ -47,7 +41,8 @@ export default async function Home({ searchParams }: { searchParams: SP }) {
         ) : (
           <div className="empty">
             <div className="big">The table is empty.</div>
-            Be the first to sit down — post an <b>Idea</b> you have been holding onto.
+            Be the first to sit down — post an <b>Idea</b> you have been holding onto.{' '}
+            {!me && <Link href="/login">Sign in to post&nbsp;→</Link>}
           </div>
         )
       ) : (

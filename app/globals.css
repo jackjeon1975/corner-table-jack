@@ -200,3 +200,9 @@ details[open] > summary { margin-bottom: 6px; }
   .steps.four, .two { grid-template-columns: 1fr; }
 }
 .empty a { white-space: nowrap; }
+
+/* Ideas waiting for a first reply */
+.waiting { margin: 18px 0 4px; border: 1px solid var(--line); border-radius: var(--radius); padding: 4px 16px 10px; background: var(--surface); }
+.waiting .list li { justify-content: space-between; }
+.waiting-body { color: var(--text); font-weight: 600; }
+.waiting-note { margin: 6px 0 0; }

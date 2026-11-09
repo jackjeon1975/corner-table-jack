@@ -7,8 +7,8 @@ export function Landing() {
       <p className="eyebrow">For solo founders and side-project builders</p>
       <h1 id="landing-title">Ideas get a table before they get built.</h1>
       <p className="lead">
-        Share an idea <b>before</b> you build it. Shape it in the open with people who care,
-        find teammates, and let fans watch it grow — from first sketch to shipped.
+        Post the idea you&apos;ve been sitting on <b>before</b> you build it. Get honest questions and risks
+        from people who care, find teammates, and build in public with fans cheering you on.
       </p>
       <div className="row cta">
         <Link className="btn" href="/login">Pull up a chair — sign in with GitHub</Link>

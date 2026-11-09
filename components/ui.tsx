@@ -29,6 +29,23 @@ export function QuietBadge({ stage, last }: { stage: string; last: string | null
   return <span className="badge quiet" title={`No update for ${d} days`}>Quiet · {d}d</span>;
 }
 
+const TAG = /(#[\p{L}\p{N}_-]{2,30})/u;
+
+/** Plain-text body where #topics link to a search. Everything else stays plain text. */
+export function BodyText({ text }: { text: string }) {
+  return (
+    <>
+      {text.split(TAG).map((part, i) =>
+        i % 2 === 1 ? (
+          <Link key={i} className="tag" href={`/explore?q=${encodeURIComponent(part)}`}>{part}</Link>
+        ) : (
+          part
+        ),
+      )}
+    </>
+  );
+}
+
 function isLong(body: string) {
   return body.length > 700 || body.split('\n').length > 8;
 }
@@ -51,7 +68,7 @@ export function PostCard({ post, me, back, full = false, inProject = false }: { 
         </Link>
         {post.updated_at !== post.created_at && full && <span className="small">(edited)</span>}
       </div>
-      <div className={`body${long ? ' clamp' : ''}`}>{post.body}</div>
+      <div className={`body${long ? ' clamp' : ''}`}><BodyText text={post.body} /></div>
       {long && <Link className="more" href={`/p/${post.id}`}>Show more</Link>}
       {post.link_url && (
         <div>
@@ -88,6 +105,14 @@ type ComposerProps = {
   placeholder?: string;
 };
 
+const AI_PROMPT = `Help me post a side-project idea on Corner Table (a community where people share ideas before building them).
+Ask me short questions one at a time, then write the post in under 150 words:
+1. What it is (one line)
+2. Who it's for and the problem it solves
+3. What I'm unsure about (a real question others can answer)
+4. Who I'm looking for (skills or roles)
+End with 2-3 #topics, e.g. #ai #saas #local.`;
+
 export function Composer({ me, back, projectId, canUpdate, placeholder }: ComposerProps) {
   const kinds = projectId
     ? [
@@ -109,6 +134,13 @@ export function Composer({ me, back, projectId, canUpdate, placeholder }: Compos
         {projectId ? 'Say something at this table' : `What's on your mind, @${me.handle}?`}
       </label>
       <textarea id="composer-body" name="body" required placeholder={placeholder ?? (projectId ? 'Share a question, a risk, or where you are.' : 'An idea? Say what it is, who it\'s for, what you\'re unsure about, and who you\'re looking for.')} />
+      {!projectId && (
+        <details className="small ai-help">
+          <summary>Draft it with AI</summary>
+          <p className="muted">Paste this into ChatGPT, Claude or any assistant, answer its questions, then paste the result here.</p>
+          <pre className="prompt">{AI_PROMPT}</pre>
+        </details>
+      )}
       <div className="row">
         <select name="kind" aria-label="Post type" defaultValue={projectId && canUpdate ? 'update' : 'note'}>
           {kinds.map(([v, l]) => (

@@ -206,3 +206,13 @@ details[open] > summary { margin-bottom: 6px; }
 .waiting .list li { justify-content: space-between; }
 .waiting-body { color: var(--text); font-weight: 600; }
 .waiting-note { margin: 6px 0 0; }
+
+/* #topics, streaks, AI drafting help */
+.tag { font-weight: 600; }
+.topics { display: flex; flex-wrap: wrap; gap: 6px; margin: 4px 0 8px; }
+.topics a { font-size: 13px; padding: 3px 10px; border-radius: 999px; border: 1px solid var(--line); background: var(--surface); color: var(--text); }
+.topics a:hover, .topics a.on { border-color: var(--accent); text-decoration: none; }
+.streak { color: var(--warn); }
+.ai-help { margin: 6px 0 2px; }
+.ai-help p { margin: 6px 0; }
+.ai-help .prompt { white-space: pre-wrap; background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; font-size: 12.5px; margin: 0; user-select: all; }

@@ -1,5 +1,7 @@
 # Corner Table
 
+A collaborative community for Single entrepreneurs
+
 > Ideas get a table before they get built.
 
 A small, simple place where people share an idea **before** building it, design it together in the open,

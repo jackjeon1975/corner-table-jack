@@ -32,6 +32,18 @@ Production:
 npm run build && npm start
 ```
 
+## Tests
+
+End-to-end test of the core journey (sign-in, idea → project, stage rules, join requests, updates,
+following feed, reports and moderation, plain-text rendering, mobile layout):
+
+```bash
+npm run build && npm run test:e2e
+```
+
+It starts its own server on port 3100 with a throwaway database. The same test runs on every push
+in GitHub Actions (`.github/workflows/ci.yml`), and screenshots are attached to the run.
+
 ## Configuration
 
 Copy `.env.example` to `.env.local` and fill in:

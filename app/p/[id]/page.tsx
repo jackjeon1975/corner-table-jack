@@ -1,3 +1,4 @@
+import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { currentUser } from '@/lib/auth';
@@ -8,6 +9,21 @@ import { Notice, PostCard, ReportButton } from '@/components/ui';
 import { createReply, deletePost, deleteReply, editPost } from '@/app/actions';
 
 type Props = { params: Promise<{ id: string }>; searchParams: Promise<Record<string, string | string[] | undefined>> };
+
+export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
+  const { id } = await params;
+  const post = await getPost(id, null);
+  if (!post) return {};
+  const first = post.body.split('\n')[0].trim();
+  const title = first.length > 70 ? `${first.slice(0, 69)}…` : first;
+  const description = `${post.kind === 'idea' ? 'An idea' : 'A post'} by @${post.handle} on Corner Table — ${post.body.replace(/\s+/g, ' ').slice(0, 140)}`;
+  return {
+    title: `${title} · Corner Table`,
+    description,
+    openGraph: { title, description, url: `/p/${id}`, siteName: 'Corner Table', type: 'article', images: ['/opengraph-image'] },
+    twitter: { card: 'summary_large_image', title, description, images: ['/opengraph-image'] },
+  };
+}
 
 export default async function PostPage({ params, searchParams }: Props) {
   const { id } = await params;

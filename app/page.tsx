@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { currentUser } from '@/lib/auth';
-import { feed, awaitingReply, cursorOf, PAGE_SIZE } from '@/lib/queries';
-import { timeAgo } from '@/lib/format';
+import { feed, awaitingReply, activeTables, cursorOf, PAGE_SIZE } from '@/lib/queries';
+import { timeAgo, STAGE_LABEL } from '@/lib/format';
 import { Composer, Notice, PostCard } from '@/components/ui';
 import { Landing } from '@/components/landing';
 
@@ -15,6 +15,7 @@ export default async function Home({ searchParams }: { searchParams: SP }) {
   const posts = await feed({ me, tab, before });
   const back = tab === 'following' ? '/?tab=following' : '/';
   const waiting = tab === 'latest' && !before ? await awaitingReply(me) : [];
+  const rolling = tab === 'latest' && !before ? await activeTables() : [];
 
   return (
     <>
@@ -37,6 +38,23 @@ export default async function Home({ searchParams }: { searchParams: SP }) {
             ))}
           </ul>
           <p className="small muted waiting-note">A question or a risk you spot helps more than a cheer.</p>
+        </section>
+      )}
+
+      {rolling.length > 0 && (
+        <section className="waiting rolling" aria-labelledby="rolling-title">
+          <div className="section-title" id="rolling-title">On a roll this week</div>
+          <ul className="list">
+            {rolling.map((t) => (
+              <li key={t.id}>
+                <Link href={`/projects/${t.id}`} className="waiting-body">{t.title}</Link>
+                <span className="small muted">
+                  {STAGE_LABEL[t.stage] ?? t.stage} · {t.updates} update{t.updates === 1 ? '' : 's'}
+                  {t.streak >= 2 && <> · <b className="streak">🔥 {t.streak}-day streak</b></>}
+                </span>
+              </li>
+            ))}
+          </ul>
         </section>
       )}
 

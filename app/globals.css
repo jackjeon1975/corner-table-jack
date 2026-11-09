@@ -152,3 +152,24 @@ details[open] > summary { margin-bottom: 6px; }
 .project-card h3 { margin: 4px 0; font-size: 16px; }
 .project-card h3 a { color: var(--text); }
 .reply { padding: 10px 0 10px 14px; border-left: 2px solid var(--line); margin: 8px 0; }
+
+/* Landing (signed-out home) */
+.landing { padding: 28px 0 8px; }
+.landing .eyebrow { font-size: 12px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--accent); font-weight: 700; margin: 0 0 8px; }
+.landing h1 { font-size: 30px; line-height: 1.2; margin: 0 0 12px; text-wrap: balance; }
+.landing .lead { font-size: 16px; color: var(--muted); margin: 0 0 18px; max-width: 34em; }
+.landing .lead b { color: var(--text); }
+.landing .cta { gap: 10px; margin-bottom: 26px; }
+.steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.step { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 14px; }
+.step .num { display: inline-flex; width: 22px; height: 22px; border-radius: 50%; align-items: center; justify-content: center; background: var(--accent-soft); color: var(--accent); font-size: 12px; font-weight: 700; margin-bottom: 6px; }
+.step b { display: block; font-size: 14px; margin-bottom: 4px; }
+.step p { margin: 0; font-size: 13px; color: var(--muted); }
+.stages { list-style: none; padding: 0; margin: 22px 0 6px; display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.stages li { font-size: 12px; font-weight: 700; padding: 4px 10px; border-radius: 999px; background: var(--accent-soft); color: var(--accent); }
+.stages li + li::before { content: "→"; color: var(--muted); font-weight: 400; margin: 0 8px 0 -2px; }
+.stages-note { margin: 0 0 8px; }
+@media (max-width: 560px) {
+  .landing h1 { font-size: 25px; }
+  .steps { grid-template-columns: 1fr; }
+}

@@ -174,3 +174,14 @@ export async function isMember(projectId: string, userId: string | undefined): P
     await one(`SELECT 1 FROM memberships WHERE project_id = ? AND user_id = ? AND status = 'approved'`, projectId, userId),
   );
 }
+
+/** Ideas nobody has answered yet, newest first — shown on the home page so no idea is left in the void. */
+export async function awaitingReply(me: User | null, limit = 3): Promise<PostRow[]> {
+  return all<PostRow>(
+    `${POST_SELECT} WHERE ${PUBLIC} AND p.kind = 'idea'
+       AND NOT EXISTS (SELECT 1 FROM replies r WHERE r.post_id = p.id AND r.visibility = 'public')
+       AND NOT EXISTS (SELECT 1 FROM projects sp WHERE sp.origin_post_id = p.id)
+     ORDER BY p.created_at DESC, p.id DESC LIMIT ?`,
+    me?.id ?? '', limit,
+  );
+}

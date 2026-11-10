@@ -19,6 +19,7 @@ export async function GET(req: NextRequest) {
   authorize.searchParams.set('code_challenge', challenge);
   authorize.searchParams.set('code_challenge_method', 'S256');
   authorize.searchParams.set('allow_signup', 'true');
+  authorize.searchParams.set('scope', 'user:email'); // read-only: the primary verified address, for opt-out notifications
 
   const res = NextResponse.redirect(authorize);
   res.cookies.set('ct_oauth', JSON.stringify({ state, verifier, next }), {

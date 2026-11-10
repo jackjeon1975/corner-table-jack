@@ -3,7 +3,7 @@ import { AsyncLocalStorage } from 'node:async_hooks';
 
 // All persistence goes through this module. Queries are written with `?`
 // placeholders and converted to Postgres `$n` parameters here.
-// Schema lives in db/schema.sql and is applied with `npm run db:migrate`.
+// Schema lives in db/schema.sql (`npm run db:migrate`); later additive changes also apply themselves (ADDITIVE_SCHEMA).
 
 type Param = string | number | boolean | null;
 
@@ -44,6 +44,52 @@ function pool(): Pool {
   return g.__ctpool;
 }
 
+// Additive, idempotent schema changes added after launch. Applied once per server
+// instance under an advisory lock, so a new feature never needs a manual SQL step.
+// Keep in sync with db/schema.sql. Only ever ADD here (columns with defaults, new tables).
+const ADDITIVE_SCHEMA = `
+  ALTER TABLE users ADD COLUMN IF NOT EXISTS can_help TEXT NOT NULL DEFAULT '';
+  ALTER TABLE users ADD COLUMN IF NOT EXISTS email TEXT;
+  ALTER TABLE users ADD COLUMN IF NOT EXISTS notify_email BOOLEAN NOT NULL DEFAULT TRUE;
+  ALTER TABLE users ADD COLUMN IF NOT EXISTS digest_sent_at TEXT;
+  CREATE TABLE IF NOT EXISTS interests (
+    post_id TEXT NOT NULL REFERENCES posts(id),
+    user_id TEXT NOT NULL REFERENCES users(id),
+    created_at TEXT NOT NULL,
+    PRIMARY KEY (post_id, user_id)
+  );
+  CREATE INDEX IF NOT EXISTS interests_recent ON interests (created_at);
+  ALTER TABLE interests ENABLE ROW LEVEL SECURITY;
+`;
+const SCHEMA_MARK = `SELECT
+  (SELECT COUNT(*) FROM information_schema.columns WHERE table_schema = current_schema() AND table_name = 'users' AND column_name = 'digest_sent_at')
+  + (SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = current_schema() AND table_name = 'interests') AS n`;
+
+const gs = globalThis as unknown as { __ctschema?: Promise<void> };
+
+function ensureSchema(): Promise<void> {
+  if (!gs.__ctschema) {
+    gs.__ctschema = (async () => {
+      const client = await pool().connect();
+      try {
+        const r = await client.query(SCHEMA_MARK);
+        if (Number(r.rows[0]?.n) >= 2) return;
+        await client.query('BEGIN');
+        await client.query('SELECT pg_advisory_xact_lock(4207191)');
+        await client.query(ADDITIVE_SCHEMA);
+        await client.query('COMMIT');
+      } catch (e) {
+        await client.query('ROLLBACK').catch(() => {});
+        gs.__ctschema = undefined; // retry on the next request
+        throw e;
+      } finally {
+        client.release();
+      }
+    })();
+  }
+  return gs.__ctschema;
+}
+
 const txClient = new AsyncLocalStorage<PoolClient>();
 
 /** Convert `?` placeholders to `$1, $2, …` (our SQL never uses `?` inside literals). */
@@ -54,6 +100,7 @@ function toPg(sql: string): string {
 
 async function query(sql: string, params: Param[]) {
   const client = txClient.getStore();
+  if (!client) await ensureSchema();
   return (client ?? pool()).query(toPg(sql), params);
 }
 
@@ -76,6 +123,7 @@ export async function run(sql: string, ...params: Param[]): Promise<{ changes: n
 
 /** Run fn inside a transaction. one/all/run called within fn use the same connection. Never call redirect() inside fn. */
 export async function tx<T>(fn: () => Promise<T>): Promise<T> {
+  await ensureSchema();
   const client = await pool().connect();
   try {
     await client.query('BEGIN');

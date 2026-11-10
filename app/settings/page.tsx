@@ -1,7 +1,8 @@
 import { redirect } from 'next/navigation';
 import { currentUser } from '@/lib/auth';
 import { Notice } from '@/components/ui';
-import { deleteAccount, logout, updateProfile } from '@/app/actions';
+import { deleteAccount, logout, updateNotifications, updateProfile } from '@/app/actions';
+import { mailConfigured } from '@/lib/mail';
 
 type SP = Promise<Record<string, string | string[] | undefined>>;
 
@@ -16,7 +17,23 @@ export default async function Settings({ searchParams }: { searchParams: SP }) {
       <Notice sp={sp} />
       <form action={updateProfile} className="card">
         <label htmlFor="bio" style={{ marginTop: 0 }}>Short intro</label>
-        <textarea id="bio" name="bio" maxLength={500} defaultValue={me.bio} placeholder="What are you into? What could you help with?" />
+        <textarea id="bio" name="bio" maxLength={500} defaultValue={me.bio} placeholder="What are you into? What are you building?" />
+        <label htmlFor="can_help">Can help with</label>
+        <input id="can_help" type="text" name="can_help" maxLength={200} defaultValue={me.can_help} placeholder="e.g. React, game design, IP law, Korean market, user interviews" />
+        <div className="hint">Shown on your profile so project leaders can find you.</div>
+        <div className="row" style={{ marginTop: 8 }}><button type="submit">Save</button></div>
+      </form>
+
+      <form action={updateNotifications} className="card" id="notifications">
+        <label htmlFor="email" style={{ marginTop: 0 }}>Email for notifications</label>
+        <input id="email" type="email" name="email" maxLength={254} defaultValue={me.email ?? ''} autoComplete="email" placeholder="you@example.com" />
+        <label style={{ fontWeight: 500 }}>
+          <input type="checkbox" name="notify_email" value="1" defaultChecked={me.notify_email} /> Email me about replies to my posts, join requests, approvals, and a weekly summary
+        </label>
+        <div className="hint">
+          Only used for these notifications. Never shown to anyone.
+          {!mailConfigured() && ' Email sending is not switched on yet — your setting is saved for when it is.'}
+        </div>
         <div className="row" style={{ marginTop: 8 }}><button type="submit">Save</button></div>
       </form>
 

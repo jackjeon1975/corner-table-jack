@@ -190,6 +190,28 @@ async function main(browser) {
   await A.waitForTimeout(400); await A.waitForLoadState('networkidle');
   check(await A.getByText('Links must start with https://').isVisible(), 'non-https link rejected');
 
+  // "I'd use this" — the author cannot vote, another person can, and it shows on Explore
+  await A.goto(B + '/');
+  check(await A.locator('button:has-text("I\'d use this")').first().isDisabled(), 'author cannot vote on own idea');
+  await Bp.goto(B + '/');
+  await Bp.locator('button:has-text("I\'d use this")').first().click();
+  await Bp.waitForTimeout(400); await Bp.waitForLoadState('networkidle');
+  check(await Bp.getByText("I'd use this · 1").first().isVisible(), 'interest vote counted');
+  await Bp.goto(B + '/explore');
+  check(await Bp.getByText('Ideas people want').isVisible(), 'explore shows most wanted ideas');
+
+  // Can help with + notification settings
+  await A.goto(B + '/settings');
+  await A.fill('input[name=can_help]', 'Game design, Unity');
+  await A.click('form:has(input[name=can_help]) button:has-text("Save")');
+  await A.waitForTimeout(400); await A.waitForLoadState('networkidle');
+  await A.fill('input[name=email]', 'founder@example.com');
+  await A.click('form#notifications button:has-text("Save")');
+  await A.waitForTimeout(400); await A.waitForLoadState('networkidle');
+  check(await A.getByText('Notification settings saved.').isVisible(), 'notification settings saved');
+  await A.goto(B + '/u/founder');
+  check(await A.getByText('Game design, Unity').isVisible(), 'profile shows can help with');
+
   // Explore
   await A.goto(B + '/explore?help=1');
   check(await A.getByText('Needs help · 2').isVisible(), 'explore shows project needing help');

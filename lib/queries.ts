@@ -228,3 +228,14 @@ export async function popularTopics(limit = 12): Promise<{ tag: string; uses: nu
     since, limit,
   );
 }
+
+/** Current Update streak for one public table (consecutive UTC days, today or yesterday back). */
+export async function projectStreak(projectId: string): Promise<number> {
+  const since = new Date(Date.now() - 60 * 86400_000).toISOString();
+  const rows = await all<{ d: string }>(
+    `SELECT DISTINCT SUBSTR(created_at, 1, 10) AS d FROM posts
+     WHERE project_id = ? AND kind = 'update' AND visibility = 'public' AND created_at > ?`,
+    projectId, since,
+  );
+  return streakOf(rows.map((r) => r.d));
+}

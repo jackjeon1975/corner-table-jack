@@ -18,6 +18,8 @@ export type PostRow = {
   reply_count: number;
   cheer_count: number;
   cheered: boolean;
+  interest_count: number;
+  interested: boolean;
   started_project_id: string | null;
 };
 
@@ -27,6 +29,8 @@ const POST_SELECT = `
     (SELECT COUNT(*)::int FROM replies r WHERE r.post_id = p.id AND r.visibility = 'public') AS reply_count,
     (SELECT COUNT(*)::int FROM cheers c WHERE c.post_id = p.id) AS cheer_count,
     EXISTS (SELECT 1 FROM cheers c WHERE c.post_id = p.id AND c.user_id = ?) AS cheered,
+    (SELECT COUNT(*)::int FROM interests i WHERE i.post_id = p.id) AS interest_count,
+    EXISTS (SELECT 1 FROM interests i WHERE i.post_id = p.id AND i.user_id = ?) AS interested,
     (SELECT id FROM projects sp WHERE sp.origin_post_id = p.id) AS started_project_id
   FROM posts p
   JOIN users u ON u.id = p.author_id
@@ -57,12 +61,12 @@ export async function feed(opts: { me: User | null; tab: 'latest' | 'following';
       `${POST_SELECT} WHERE ${PUBLIC}
         AND p.project_id IN (SELECT project_id FROM follows WHERE user_id = ?)${c.sql}
        ORDER BY p.created_at DESC, p.id DESC LIMIT ?`,
-      me, me, ...c.params, PAGE_SIZE,
+      me, me, me, ...c.params, PAGE_SIZE,
     );
   }
   return all<PostRow>(
     `${POST_SELECT} WHERE ${PUBLIC}${c.sql} ORDER BY p.created_at DESC, p.id DESC LIMIT ?`,
-    me, ...c.params, PAGE_SIZE,
+    me, me, ...c.params, PAGE_SIZE,
   );
 }
 
@@ -72,7 +76,7 @@ export async function projectPosts(projectId: string, me: User | null, kinds?: s
   return all<PostRow>(
     `${POST_SELECT} WHERE ${PUBLIC} AND (p.project_id = ? OR p.id = (SELECT origin_post_id FROM projects WHERE id = ?))${kindSql}${c.sql}
      ORDER BY p.created_at DESC, p.id DESC LIMIT ?`,
-    me?.id ?? '', projectId, projectId, ...(kinds ?? []), ...c.params, PAGE_SIZE,
+    me?.id ?? '', me?.id ?? '', projectId, projectId, ...(kinds ?? []), ...c.params, PAGE_SIZE,
   );
 }
 
@@ -80,7 +84,7 @@ export async function userPosts(userId: string, me: User | null, before?: string
   const c = cursorClause(before);
   return all<PostRow>(
     `${POST_SELECT} WHERE ${PUBLIC} AND p.author_id = ?${c.sql} ORDER BY p.created_at DESC, p.id DESC LIMIT ?`,
-    me?.id ?? '', userId, ...c.params, PAGE_SIZE,
+    me?.id ?? '', me?.id ?? '', userId, ...c.params, PAGE_SIZE,
   );
 }
 
@@ -89,14 +93,14 @@ export async function searchPosts(q: string, me: User | null): Promise<PostRow[]
   return all<PostRow>(
     `${POST_SELECT} WHERE ${PUBLIC} AND p.body ILIKE ? ESCAPE '\\'
      ORDER BY p.created_at DESC, p.id DESC LIMIT ?`,
-    me?.id ?? '', like, PAGE_SIZE,
+    me?.id ?? '', me?.id ?? '', like, PAGE_SIZE,
   );
 }
 
 export async function getPost(id: string, me: User | null, includeHidden = false): Promise<PostRow | undefined> {
   return one<PostRow>(
     `${POST_SELECT} WHERE p.id = ?${includeHidden ? '' : ` AND ${PUBLIC}`}`,
-    me?.id ?? '', id,
+    me?.id ?? '', me?.id ?? '', id,
   );
 }
 
@@ -182,7 +186,7 @@ export async function awaitingReply(me: User | null, limit = 3): Promise<PostRow
        AND NOT EXISTS (SELECT 1 FROM replies r WHERE r.post_id = p.id AND r.visibility = 'public')
        AND NOT EXISTS (SELECT 1 FROM projects sp WHERE sp.origin_post_id = p.id)
      ORDER BY p.created_at DESC, p.id DESC LIMIT ?`,
-    me?.id ?? '', limit,
+    me?.id ?? '', me?.id ?? '', limit,
   );
 }
 
@@ -238,4 +242,15 @@ export async function projectStreak(projectId: string): Promise<number> {
     projectId, since,
   );
   return streakOf(rows.map((r) => r.d));
+}
+
+/** Ideas the most people said they would use in the last 30 days (Product Hunt / IdeaKiln style demand signal). */
+export async function mostWanted(me: User | null, limit = 5): Promise<PostRow[]> {
+  const since = new Date(Date.now() - 30 * 86400_000).toISOString();
+  return all<PostRow>(
+    `SELECT * FROM (${POST_SELECT} WHERE ${PUBLIC} AND p.kind = 'idea') x
+     WHERE x.interest_count > 0 AND x.created_at > ?
+     ORDER BY x.interest_count DESC, x.created_at DESC LIMIT ?`,
+    me?.id ?? '', me?.id ?? '', since, limit,
+  );
 }

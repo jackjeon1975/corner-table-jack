@@ -216,3 +216,5 @@ details[open] > summary { margin-bottom: 6px; }
 .ai-help { margin: 6px 0 2px; }
 .ai-help p { margin: 6px 0; }
 .ai-help .prompt { white-space: pre-wrap; background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; font-size: 12.5px; margin: 0; user-select: all; }
+
+.embed-code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; min-height: 64px; }

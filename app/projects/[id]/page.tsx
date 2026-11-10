@@ -3,7 +3,7 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { currentUser } from '@/lib/auth';
 import { all, one } from '@/lib/db';
-import { getProject, membersOf, projectPosts, cursorOf, PAGE_SIZE } from '@/lib/queries';
+import { getProject, membersOf, projectPosts, projectStreak, cursorOf, PAGE_SIZE } from '@/lib/queries';
 import { domainOf, timeAgo, STAGES, STAGE_LABEL } from '@/lib/format';
 import { Composer, Notice, PostCard, QuietBadge, ReportButton, StageBadge } from '@/components/ui';
 import {
@@ -21,8 +21,8 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
   return {
     title: `${title} · Corner Table`,
     description,
-    openGraph: { title, description, url: `/projects/${id}`, siteName: 'Corner Table', type: 'article', images: ['/opengraph-image'] },
-    twitter: { card: 'summary_large_image', title, description, images: ['/opengraph-image'] },
+    openGraph: { title, description, url: `/projects/${id}`, siteName: 'Corner Table', type: 'article' },
+    twitter: { card: 'summary_large_image', title, description },
   };
 }
 
@@ -63,6 +63,8 @@ export default async function ProjectPage({ params, searchParams }: Props) {
       )
     : [];
   const ended = project.stage === 'ended';
+  const streak = await projectStreak(id);
+  const base = process.env.APP_URL || '';
   const continuedFrom = project.continued_from
     ? await one<{ id: string; title: string }>(`SELECT id, title FROM projects WHERE id = ? AND visibility = 'public'`, project.continued_from)
     : undefined;
@@ -88,6 +90,7 @@ export default async function ProjectPage({ params, searchParams }: Props) {
       <div className="stats">
         <span><b>{project.follower_count}</b> following</span>
         <span><b>{project.member_count + 1}</b> at the table</span>
+        {streak >= 2 && <span className="streak">🔥 {streak}-day streak</span>}
         {project.repo_url && (
           <a href={project.repo_url} target="_blank" rel="noopener noreferrer nofollow">↗ {project.repo_url.replace('https://', '')}</a>
         )}
@@ -278,6 +281,13 @@ export default async function ProjectPage({ params, searchParams }: Props) {
               </form>
             </details>
           )}
+
+          <details style={{ marginTop: 12 }}>
+            <summary>Share your table</summary>
+            <p className="small muted">Put this badge in your GitHub README or on your site. It shows your stage and streak and links back here.</p>
+            <p><img src={`/projects/${id}/badge.svg`} alt="Corner Table badge" height={20} /></p>
+            <textarea readOnly className="embed-code" aria-label="Badge Markdown" value={`[![Corner Table](${base}/projects/${id}/badge.svg)](${base}/projects/${id})`} />
+          </details>
 
           <details style={{ marginTop: 12 }}>
             <summary>Edit project</summary>

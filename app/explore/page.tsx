@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { currentUser } from '@/lib/auth';
-import { listProjects, searchPosts, popularTopics } from '@/lib/queries';
+import { listProjects, searchPosts, popularTopics, mostWanted } from '@/lib/queries';
 import { STAGES, STAGE_LABEL, timeAgo } from '@/lib/format';
 import { PostCard, QuietBadge, StageBadge } from '@/components/ui';
 
@@ -16,6 +16,7 @@ export default async function Explore({ searchParams }: { searchParams: SP }) {
   const projects = await listProjects({ q, stage, recruiting, help });
   const posts = q ? await searchPosts(q, me) : [];
   const topics = await popularTopics();
+  const wanted = q ? [] : await mostWanted(me);
 
   return (
     <>
@@ -43,6 +44,13 @@ export default async function Explore({ searchParams }: { searchParams: SP }) {
             </Link>
           ))}
         </nav>
+      )}
+
+      {wanted.length > 0 && (
+        <>
+          <div className="section-title">Ideas people want · last 30 days</div>
+          {wanted.map((p) => <PostCard key={p.id} post={p} me={me} back="/explore" />)}
+        </>
       )}
 
       <div className="section-title">Projects · {projects.length}</div>

@@ -51,17 +51,31 @@ export async function GET(req: NextRequest) {
   const gh = (await ghRes.json().catch(() => ({}))) as { id?: number; login?: string; name?: string; avatar_url?: string };
   if (!gh.id || !gh.login) return bad(req, 'Could not read your GitHub profile.');
 
+  // Primary verified email (needs the user:email scope). Optional: sign-in still works without it.
+  let email: string | null = null;
+  try {
+    const er = await fetch('https://api.github.com/user/emails', {
+      headers: { Authorization: `Bearer ${token.access_token}`, Accept: 'application/vnd.github+json', 'User-Agent': 'corner-table' },
+      cache: 'no-store',
+    });
+    const list = (await er.json().catch(() => [])) as { email?: string; primary?: boolean; verified?: boolean }[];
+    const pick = Array.isArray(list) ? list.find((e) => e.primary && e.verified && e.email && !e.email.endsWith('@users.noreply.github.com')) : undefined;
+    email = pick?.email?.toLowerCase() ?? null;
+  } catch {
+    email = null;
+  }
+
   // Accounts are keyed by GitHub's numeric id; the login name is display data and may change.
   let user = await one<{ id: string; status: string }>('SELECT id, status FROM users WHERE github_user_id = ?', gh.id);
   if (user && user.status !== 'active') return bad(req, 'This account is not active.');
   if (user) {
-    await run('UPDATE users SET handle = ?, name = ?, avatar_url = ? WHERE id = ?',
-      await freeHandle(gh.login, user.id), gh.name ?? null, gh.avatar_url ?? null, user.id);
+    await run('UPDATE users SET handle = ?, name = ?, avatar_url = ?, email = COALESCE(email, ?) WHERE id = ?',
+      await freeHandle(gh.login, user.id), gh.name ?? null, gh.avatar_url ?? null, email, user.id);
   } else {
     const id = newId();
     await run(
-      'INSERT INTO users (id, github_user_id, handle, name, avatar_url, created_at) VALUES (?, ?, ?, ?, ?, ?)',
-      id, gh.id, await freeHandle(gh.login), gh.name ?? null, gh.avatar_url ?? null, now(),
+      'INSERT INTO users (id, github_user_id, handle, name, avatar_url, email, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)',
+      id, gh.id, await freeHandle(gh.login), gh.name ?? null, gh.avatar_url ?? null, email, now(),
     );
     user = { id, status: 'active' };
   }

@@ -125,6 +125,21 @@ CREATE TABLE IF NOT EXISTS audit_log (
   created_at TEXT NOT NULL
 );
 
+-- Added 2026-11: "I'd use this" votes, what people can help with, email notifications.
+-- lib/db.ts applies these same statements automatically on first use (see ADDITIVE_SCHEMA).
+ALTER TABLE users ADD COLUMN IF NOT EXISTS can_help TEXT NOT NULL DEFAULT '';
+ALTER TABLE users ADD COLUMN IF NOT EXISTS email TEXT;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS notify_email BOOLEAN NOT NULL DEFAULT TRUE;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS digest_sent_at TEXT;
+
+CREATE TABLE IF NOT EXISTS interests (
+  post_id TEXT NOT NULL REFERENCES posts(id),
+  user_id TEXT NOT NULL REFERENCES users(id),
+  created_at TEXT NOT NULL,
+  PRIMARY KEY (post_id, user_id)
+);
+CREATE INDEX IF NOT EXISTS interests_recent ON interests (created_at);
+
 -- The app connects server-side as the database owner, which bypasses RLS.
 -- Enabling RLS with no policies blocks Supabase's public REST API (anon key)
 -- from reading or writing any of these tables.
@@ -139,3 +154,4 @@ ALTER TABLE memberships ENABLE ROW LEVEL SECURITY;
 ALTER TABLE needs ENABLE ROW LEVEL SECURITY;
 ALTER TABLE reports ENABLE ROW LEVEL SECURITY;
 ALTER TABLE audit_log ENABLE ROW LEVEL SECURITY;
+ALTER TABLE interests ENABLE ROW LEVEL SECURITY;

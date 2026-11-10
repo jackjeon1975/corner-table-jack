@@ -13,6 +13,7 @@ export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
   title: 'Corner Table — Ideas get a table before they get built.',
   description: DESCRIPTION,
+  alternates: { types: { 'application/rss+xml': [{ url: '/feed.xml', title: 'Corner Table · Latest' }] } },
   openGraph: {
     title: 'Corner Table',
     description: DESCRIPTION,

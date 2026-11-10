@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import type { User } from '@/lib/auth';
 import type { PostRow } from '@/lib/queries';
-import { createPost, toggleCheer, reportContent } from '@/app/actions';
+import { createPost, toggleCheer, toggleInterest, reportContent } from '@/app/actions';
 import { timeAgo, domainOf, KIND_LABEL, STAGE_LABEL, QUIET_DAYS, daysSince } from '@/lib/format';
 
 export function Notice({ sp }: { sp: Record<string, string | string[] | undefined> }) {
@@ -86,6 +86,20 @@ export function PostCard({ post, me, back, full = false, inProject = false }: { 
             ☕ Cheer{post.cheer_count ? ` · ${post.cheer_count}` : ''}
           </button>
         </form>
+        {post.kind === 'idea' && (
+          <form action={toggleInterest}>
+            <input type="hidden" name="post_id" value={post.id} />
+            <input type="hidden" name="back" value={back} />
+            <button
+              className={`plain${post.interested ? ' on' : ''}`}
+              aria-pressed={Boolean(post.interested)}
+              disabled={!me || me.id === post.author_id}
+              title={!me ? 'Sign in to vote' : me.id === post.author_id ? 'Others can vote on your idea' : 'Tell the author you would use this'}
+            >
+              🙋 I&apos;d use this{post.interest_count ? ` · ${post.interest_count}` : ''}
+            </button>
+          </form>
+        )}
         {post.kind === 'idea' && !post.started_project_id && me?.id === post.author_id && (
           <Link href={`/p/${post.id}/start`}>Start a project →</Link>
         )}

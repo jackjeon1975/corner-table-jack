@@ -20,8 +20,8 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
   return {
     title: `${title} · Corner Table`,
     description,
-    openGraph: { title, description, url: `/p/${id}`, siteName: 'Corner Table', type: 'article', images: ['/opengraph-image'] },
-    twitter: { card: 'summary_large_image', title, description, images: ['/opengraph-image'] },
+    openGraph: { title, description, url: `/p/${id}`, siteName: 'Corner Table', type: 'article' },
+    twitter: { card: 'summary_large_image', title, description },
   };
 }
 

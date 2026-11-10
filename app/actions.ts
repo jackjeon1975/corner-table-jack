@@ -1,6 +1,8 @@
 'use server';
 
 import { redirect } from 'next/navigation';
+import { after } from 'next/server';
+import { notifyUser } from '@/lib/mail';
 import { one, run, tx, now, newId, audit } from '@/lib/db';
 import {
   currentUser, startSession, endSession, isAdmin, devLoginAllowed, safeNext, freeHandle, type User,
@@ -160,6 +162,13 @@ export async function createReply(fd: FormData) {
   const body = text(fd, 'body', back, 'Reply');
   if (await rateLimited('replies', 'author_id', user.id, 60, 3600_000)) fail(back, 'Slow down a little — try again later.');
   await run('INSERT INTO replies (id, post_id, author_id, body, created_at) VALUES (?, ?, ?, ?, ?)', newId(), postId, user.id, body, now());
+  after(async () => {
+    const post = await one<{ author_id: string; body: string; kind: string }>('SELECT author_id, body, kind FROM posts WHERE id = ?', postId);
+    if (!post) return;
+    const title = post.body.split('\n')[0].slice(0, 80);
+    await notifyUser(post.author_id, user.id, `@${user.handle} replied to your ${post.kind === 'idea' ? 'idea' : 'post'}`,
+      [`@${user.handle} replied to “${title}”:`, body.slice(0, 600)], { label: 'Read and reply', path: back });
+  });
   redirect(back);
 }
 
@@ -182,6 +191,22 @@ export async function toggleCheer(fd: FormData) {
   else {
     const ok = await one(`SELECT 1 FROM posts WHERE id = ? AND visibility = 'public'`, postId);
     if (ok) await run('INSERT INTO cheers (post_id, user_id, created_at) VALUES (?, ?, ?) ON CONFLICT DO NOTHING', postId, user.id, now());
+  }
+  redirect(back);
+}
+
+/** "I'd use this" on an idea: a demand signal, one per person, not on your own idea. */
+export async function toggleInterest(fd: FormData) {
+  const back = backOf(fd);
+  const user = await requireUser(back);
+  const postId = str(fd, 'post_id');
+  const exists = await one('SELECT 1 FROM interests WHERE post_id = ? AND user_id = ?', postId, user.id);
+  if (exists) await run('DELETE FROM interests WHERE post_id = ? AND user_id = ?', postId, user.id);
+  else {
+    const post = await one<{ author_id: string }>(`SELECT author_id FROM posts WHERE id = ? AND kind = 'idea' AND visibility = 'public'`, postId);
+    if (!post) fail(back, 'Idea not found.');
+    if (post.author_id === user.id) fail(back, 'This is your own idea — ask others to try it.');
+    await run('INSERT INTO interests (post_id, user_id, created_at) VALUES (?, ?, ?) ON CONFLICT DO NOTHING', postId, user.id, now());
   }
   redirect(back);
 }
@@ -365,6 +390,8 @@ export async function applyToJoin(fd: FormData) {
   } catch {
     fail(back, 'You already have a request or a seat on this project.');
   }
+  after(() => notifyUser(p.leader_id, user.id, `@${user.handle} wants to join your table`,
+    [`@${user.handle} asked to join as ${role}:`, intro.slice(0, 600)], { label: 'Review the request', path: back }));
   redirect(withMsg(back, 'ok', 'Request sent. The leader will decide.'));
 }
 
@@ -400,6 +427,13 @@ export async function decideMembership(fd: FormData) {
     step.to, op === 'approve' ? role : '', role, now(), id, step.from,
   );
   if (Number(res.changes) === 0) fail(back, 'That request already changed. Refresh and try again.');
+  if (op === 'approve') {
+    after(async () => {
+      const pr = await one<{ title: string }>('SELECT title FROM projects WHERE id = ?', m.project_id);
+      await notifyUser(m.user_id, user.id, `You're in: ${pr?.title ?? 'a project'}`,
+        [`@${user.handle} approved your request to join “${pr?.title ?? ''}”. Welcome to the table.`], { label: 'Open the project', path: back });
+    });
+  }
   redirect(back);
 }
 
@@ -471,8 +505,18 @@ export async function updateProfile(fd: FormData) {
   const user = await requireUser('/settings');
   const bio = str(fd, 'bio');
   if (bio.length > 500) fail('/settings', 'Keep the intro under 500 characters.');
-  await run('UPDATE users SET bio = ? WHERE id = ?', bio, user.id);
+  const canHelp = str(fd, 'can_help');
+  if (canHelp.length > 200) fail('/settings', 'Keep “Can help with” under 200 characters.');
+  await run('UPDATE users SET bio = ?, can_help = ? WHERE id = ?', bio, canHelp, user.id);
   redirect(withMsg('/settings', 'ok', 'Saved.'));
+}
+
+export async function updateNotifications(fd: FormData) {
+  const user = await requireUser('/settings');
+  const email = str(fd, 'email').toLowerCase();
+  if (email && (email.length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))) fail('/settings', 'That email does not look right.');
+  await run('UPDATE users SET email = ?, notify_email = ? WHERE id = ?', email || null, fd.get('notify_email') === '1', user.id);
+  redirect(withMsg('/settings', 'ok', 'Notification settings saved.'));
 }
 
 export async function deleteAccount(fd: FormData) {
@@ -482,7 +526,7 @@ export async function deleteAccount(fd: FormData) {
     const t = now();
     const ghost = await freeHandle(`deleted-${user.id.slice(0, 8)}`);
     await run(
-      `UPDATE users SET status = 'deleted', handle = ?, name = NULL, avatar_url = NULL, bio = '', github_user_id = NULL WHERE id = ?`,
+      `UPDATE users SET status = 'deleted', handle = ?, name = NULL, avatar_url = NULL, bio = '', can_help = '', email = NULL, notify_email = FALSE, github_user_id = NULL WHERE id = ?`,
       ghost, user.id,
     );
     await run(`UPDATE posts SET visibility = 'deleted', updated_at = ? WHERE author_id = ? AND visibility = 'public'`, t, user.id);
@@ -492,6 +536,7 @@ export async function deleteAccount(fd: FormData) {
     await run(`UPDATE projects SET stage = 'ended', recruiting = FALSE, updated_at = ? WHERE leader_id = ? AND stage <> 'ended'`, t, user.id);
     await run('DELETE FROM follows WHERE user_id = ?', user.id);
     await run('DELETE FROM cheers WHERE user_id = ?', user.id);
+    await run('DELETE FROM interests WHERE user_id = ?', user.id);
     await run('DELETE FROM sessions WHERE user_id = ?', user.id);
     await audit(user.id, 'account_deleted', 'user', user.id);
   });

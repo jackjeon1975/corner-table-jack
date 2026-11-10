@@ -15,6 +15,9 @@ export type User = {
   status: string;
   is_dev: boolean;
   created_at: string;
+  can_help: string;
+  email: string | null;
+  notify_email: boolean;
 };
 
 const sha256 = (s: string) => crypto.createHash('sha256').update(s).digest('hex');

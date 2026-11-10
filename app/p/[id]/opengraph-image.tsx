@@ -14,7 +14,8 @@ export default async function Image({ params }: { params: Promise<{ id: string }
   const rest = post ? clip(post.body.split('\n').slice(1).join(' '), 150) : '';
   const kind = post ? KIND_LABEL[post.kind] ?? post.kind : 'Idea';
   const by = post ? `@${post.handle}` : '';
-  const stats = post ? `${post.reply_count} ${post.reply_count === 1 ? 'reply' : 'replies'} · ${post.cheer_count} cheers` : '';
+  const wants = post && post.interest_count ? ` · ${post.interest_count} would use it` : '';
+  const stats = post ? `${post.reply_count} ${post.reply_count === 1 ? 'reply' : 'replies'}${wants}` : '';
   const ask = post?.kind === 'idea' ? 'What would you ask before this gets built?' : 'Join the conversation';
   const fonts = await ogFont(title + rest + by + stats + ask + kind + 'Corner Table');
   return new ImageResponse(

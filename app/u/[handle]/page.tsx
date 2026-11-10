@@ -11,8 +11,8 @@ export default async function Profile({ params, searchParams }: Props) {
   const { handle } = await params;
   const sp = await searchParams;
   const me = await currentUser();
-  const user = await one<{ id: string; handle: string; name: string | null; bio: string; avatar_url: string | null; github_user_id: number | null; created_at: string }>(
-    `SELECT id, handle, name, bio, avatar_url, github_user_id, created_at FROM users WHERE handle = ? AND status = 'active'`,
+  const user = await one<{ id: string; handle: string; name: string | null; bio: string; can_help: string; avatar_url: string | null; github_user_id: number | null; created_at: string }>(
+    `SELECT id, handle, name, bio, can_help, avatar_url, github_user_id, created_at FROM users WHERE handle = ? AND status = 'active'`,
     decodeURIComponent(handle),
   );
   if (!user) notFound();
@@ -45,6 +45,12 @@ export default async function Profile({ params, searchParams }: Props) {
         {self && <Link className="btn ghost" href="/settings" style={{ marginLeft: 'auto' }}>Settings</Link>}
       </div>
       {user.bio && <p className="prose">{user.bio}</p>}
+      {user.can_help && (
+        <p className="can-help"><span className="badge k-help">Can help with</span> {user.can_help}</p>
+      )}
+      {self && !user.can_help && (
+        <p className="small muted"><Link href="/settings">Add what you can help with</Link> so project leaders can find you.</p>
+      )}
       {user.github_user_id && (
         <p className="small"><a href={`https://github.com/${user.handle}`} target="_blank" rel="noopener noreferrer">↗ github.com/{user.handle}</a></p>
       )}

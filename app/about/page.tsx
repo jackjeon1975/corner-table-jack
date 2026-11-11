@@ -1,4 +1,11 @@
+import type { Metadata } from 'next';
 import Link from 'next/link';
+
+export const metadata: Metadata = {
+  title: 'About Corner Table — a community for solo founders',
+  description: 'Why Corner Table exists: share an idea before you build it, get honest questions and risks, find teammates, and build in public.',
+  alternates: { canonical: '/about' },
+};
 
 export default function About() {
   return (

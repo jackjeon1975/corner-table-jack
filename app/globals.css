@@ -219,3 +219,4 @@ details[open] > summary { margin-bottom: 6px; }
 
 .embed-code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; min-height: 64px; }
 .can-help { display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; margin: 6px 0 10px; }
+.totp-key { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 20px; letter-spacing: 1px; background: var(--surface); border: 1px solid var(--line, #e6dfd6); border-radius: 8px; padding: 10px 14px; word-break: break-all; user-select: all; }

@@ -66,9 +66,15 @@ const ADDITIVE_SCHEMA = `
   ALTER TABLE users ADD COLUMN IF NOT EXISTS totp_enabled BOOLEAN NOT NULL DEFAULT FALSE;
   ALTER TABLE users ADD COLUMN IF NOT EXISTS totp_last_step BIGINT;
   ALTER TABLE sessions ADD COLUMN IF NOT EXISTS mfa_at TEXT;
+  ALTER TABLE posts ADD COLUMN IF NOT EXISTS offer TEXT;
+  ALTER TABLE posts ADD COLUMN IF NOT EXISTS seek TEXT;
+  ALTER TABLE posts ADD COLUMN IF NOT EXISTS link_title TEXT;
+  ALTER TABLE posts ADD COLUMN IF NOT EXISTS link_desc TEXT;
+  ALTER TABLE posts ADD COLUMN IF NOT EXISTS link_site TEXT;
+  CREATE INDEX IF NOT EXISTS posts_kind ON posts (kind, created_at DESC);
 `;
 // One marker per batch of ADDITIVE_SCHEMA changes; when all exist, nothing runs.
-const SCHEMA_MARKERS: [string, string][] = [['users', 'digest_sent_at'], ['interests', 'post_id'], ['sessions', 'mfa_at']];
+const SCHEMA_MARKERS: [string, string][] = [['users', 'digest_sent_at'], ['interests', 'post_id'], ['sessions', 'mfa_at'], ['posts', 'link_site']];
 const SCHEMA_MARK = `SELECT COUNT(*) AS n FROM information_schema.columns WHERE table_schema = current_schema() AND (${SCHEMA_MARKERS.map(
   ([t, c]) => `(table_name = '${t}' AND column_name = '${c}')`,
 ).join(' OR ')})`;

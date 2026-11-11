@@ -6,6 +6,7 @@ import { all } from '@/lib/db';
 import { getPost } from '@/lib/queries';
 import { timeAgo } from '@/lib/format';
 import { Notice, PostCard, ReportButton } from '@/components/ui';
+import { ShareBar } from '@/components/share';
 import { createReply, deletePost, deleteReply, editPost } from '@/app/actions';
 
 type Props = { params: Promise<{ id: string }>; searchParams: Promise<Record<string, string | string[] | undefined>> };
@@ -68,6 +69,7 @@ export default async function PostPage({ params, searchParams }: Props) {
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(ld).replace(/</g, '\\u003c') }} />
       <Notice sp={sp} />
       <PostCard post={post} me={me} back={back} full />
+      <ShareBar url={`${base}/p/${post.id}`} text={post.body.split('\n')[0].trim().slice(0, 100)} />
 
       <div className="row small" style={{ gap: 16 }}>
         {mine && (

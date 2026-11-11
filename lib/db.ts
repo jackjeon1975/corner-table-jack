@@ -60,10 +60,18 @@ const ADDITIVE_SCHEMA = `
   );
   CREATE INDEX IF NOT EXISTS interests_recent ON interests (created_at);
   ALTER TABLE interests ENABLE ROW LEVEL SECURITY;
+  ALTER TABLE users ADD COLUMN IF NOT EXISTS google_sub TEXT;
+  CREATE UNIQUE INDEX IF NOT EXISTS users_google_sub ON users (google_sub) WHERE google_sub IS NOT NULL;
+  ALTER TABLE users ADD COLUMN IF NOT EXISTS totp_secret TEXT;
+  ALTER TABLE users ADD COLUMN IF NOT EXISTS totp_enabled BOOLEAN NOT NULL DEFAULT FALSE;
+  ALTER TABLE users ADD COLUMN IF NOT EXISTS totp_last_step BIGINT;
+  ALTER TABLE sessions ADD COLUMN IF NOT EXISTS mfa_at TEXT;
 `;
-const SCHEMA_MARK = `SELECT
-  (SELECT COUNT(*) FROM information_schema.columns WHERE table_schema = current_schema() AND table_name = 'users' AND column_name = 'digest_sent_at')
-  + (SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = current_schema() AND table_name = 'interests') AS n`;
+// One marker per batch of ADDITIVE_SCHEMA changes; when all exist, nothing runs.
+const SCHEMA_MARKERS: [string, string][] = [['users', 'digest_sent_at'], ['interests', 'post_id'], ['sessions', 'mfa_at']];
+const SCHEMA_MARK = `SELECT COUNT(*) AS n FROM information_schema.columns WHERE table_schema = current_schema() AND (${SCHEMA_MARKERS.map(
+  ([t, c]) => `(table_name = '${t}' AND column_name = '${c}')`,
+).join(' OR ')})`;
 
 const gs = globalThis as unknown as { __ctschema?: Promise<void> };
 
@@ -73,7 +81,7 @@ function ensureSchema(): Promise<void> {
       const client = await pool().connect();
       try {
         const r = await client.query(SCHEMA_MARK);
-        if (Number(r.rows[0]?.n) >= 2) return;
+        if (Number(r.rows[0]?.n) >= SCHEMA_MARKERS.length) return;
         await client.query('BEGIN');
         await client.query('SELECT pg_advisory_xact_lock(4207191)');
         await client.query(ADDITIVE_SCHEMA);

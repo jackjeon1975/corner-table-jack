@@ -54,7 +54,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         </header>
         <main className="wrap">{children}</main>
         <footer className="wrap footer">
-          Ideas get a table before they get built. · <Link href="/about">About</Link> · <Link href="/report">Report a rights issue</Link>
+          Ideas get a table before they get built. · <Link href="/about">About</Link> · <Link href="/privacy">Privacy</Link> · <Link href="/terms">Terms</Link> · <Link href="/report">Report a rights issue</Link>
         </footer>
         {/* Vercel Web Analytics (cookie-free page views). Active once Analytics is enabled for the project. */}
         {process.env.VERCEL && <script defer src="/_vercel/insights/script.js" />}

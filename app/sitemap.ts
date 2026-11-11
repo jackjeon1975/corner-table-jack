@@ -16,6 +16,8 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     { url: `${base}/`, changeFrequency: 'hourly' },
     { url: `${base}/explore`, changeFrequency: 'daily' },
     { url: `${base}/about`, changeFrequency: 'monthly' },
+    { url: `${base}/privacy`, changeFrequency: 'yearly' },
+    { url: `${base}/terms`, changeFrequency: 'yearly' },
     ...projects.map((p) => ({ url: `${base}/projects/${p.id}`, lastModified: p.updated_at })),
     ...ideas.map((p) => ({ url: `${base}/p/${p.id}`, lastModified: p.updated_at })),
   ];

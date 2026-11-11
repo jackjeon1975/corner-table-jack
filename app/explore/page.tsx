@@ -1,3 +1,4 @@
+import type { Metadata } from 'next';
 import Link from 'next/link';
 import { currentUser } from '@/lib/auth';
 import { listProjects, searchPosts, popularTopics, mostWanted } from '@/lib/queries';
@@ -5,6 +6,18 @@ import { STAGES, STAGE_LABEL, timeAgo } from '@/lib/format';
 import { PostCard, QuietBadge, StageBadge } from '@/components/ui';
 
 type SP = Promise<Record<string, string | string[] | undefined>>;
+
+export async function generateMetadata({ searchParams }: { searchParams: SP }): Promise<Metadata> {
+  const sp = await searchParams;
+  const filtered = ['q', 'stage', 'recruiting', 'help'].some((k) => sp[k]);
+  return {
+    title: 'Explore startup ideas and projects · Corner Table',
+    description: 'Browse ideas and side projects being built in public. Find teams that are recruiting or need help.',
+    alternates: { canonical: '/explore' },
+    // Search and filter result pages are thin duplicates; keep them out of the index but follow links.
+    robots: filtered ? { index: false, follow: true } : undefined,
+  };
+}
 
 export default async function Explore({ searchParams }: { searchParams: SP }) {
   const sp = await searchParams;

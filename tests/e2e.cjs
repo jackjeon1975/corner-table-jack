@@ -235,6 +235,20 @@ async function main(browser) {
   await A.goto(B + '/u/founder');
   check(await A.getByText('Game design, Unity').isVisible(), 'profile shows can help with');
 
+  // "Looking for a partner" post with what I can do / who I'm looking for, listed on Explore, with share links
+  await Bp.goto(B + '/');
+  await Bp.fill('textarea[name=body]', 'I can build anything but have no idea how to market it.');
+  await Bp.selectOption('select[name=kind]', 'partner');
+  await Bp.fill('input[name=offer]', 'Full-stack web apps');
+  await Bp.fill('input[name=seek]', 'A marketer for launch');
+  await Bp.click('form.composer button:has-text("Post")');
+  await Bp.waitForTimeout(400); await Bp.waitForLoadState('networkidle');
+  await Bp.goto(B + '/explore?kind=partner');
+  check(await Bp.getByText('A marketer for launch').first().isVisible(), 'partner post listed with what they are looking for');
+  await Bp.locator('article.post a:has-text("Share")').first().click();
+  await Bp.waitForLoadState('networkidle');
+  check(await Bp.locator('#share a:has-text("LinkedIn")').isVisible(), 'share bar on post page');
+
   // Explore
   await A.goto(B + '/explore?help=1');
   check(await A.getByText('Needs help · 2').isVisible(), 'explore shows project needing help');

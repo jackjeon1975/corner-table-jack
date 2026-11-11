@@ -85,4 +85,6 @@ Copy `.env.example` to `.env.local` and fill in:
 
 - Schema lives in `db/schema.sql` (idempotent). Row Level Security is enabled on every table with no policies, so Supabase's public REST API cannot read or write them; the app connects server-side only.
 - Not yet built (PRD P1): GitHub release import, "decided" marks on Questions, continuing an ended project, translation, notifications.
-- `/ops` has no MFA yet — required before a public launch.
+- `/ops` requires two-step verification (TOTP, authenticator app). The first visit shows a setup key; after that a 6-digit code every 12 hours. Admins must be GitHub accounts listed in `ADMIN_HANDLES`. Lost the phone? Reset in the Supabase SQL editor: `UPDATE users SET totp_enabled = FALSE, totp_secret = NULL, totp_last_step = NULL WHERE handle = '<your handle>';` and set it up again.
+- Google sign-in appears on `/login` once `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` are set (redirect URI `$APP_URL/auth/google/callback`).
+- Web Analytics: the layout loads `/_vercel/insights/script.js` on Vercel; enable Analytics on the project and redeploy.

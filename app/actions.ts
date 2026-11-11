@@ -76,15 +76,19 @@ export async function devLogin(fd: FormData) {
   if (!/^[A-Za-z0-9](?:[A-Za-z0-9-]{0,38})$/.test(handle)) {
     fail(`/login?next=${encodeURIComponent(next)}`, 'Use letters, numbers and dashes (max 39).');
   }
-  let user = await one<{ id: string; status: string }>('SELECT id, status FROM users WHERE lower(handle) = lower(?)', handle);
+  let user = await one<{ id: string; status: string; is_dev: boolean }>(
+    'SELECT id, status, is_dev FROM users WHERE lower(handle) = lower(?)', handle,
+  );
   if (user && user.status !== 'active') fail('/login', 'That account is not active.');
+  // Dev login can never sign in as a real (GitHub/Google) account.
+  if (user && !user.is_dev) fail(`/login?next=${encodeURIComponent(next)}`, 'That handle belongs to a real account. Pick another.');
   if (!user) {
     const id = newId();
     await run(
       `INSERT INTO users (id, handle, name, is_dev, created_at) VALUES (?, ?, ?, TRUE, ?)`,
       id, handle, handle, now(),
     );
-    user = { id, status: 'active' };
+    user = { id, status: 'active', is_dev: true };
   }
   await startSession(user.id);
   redirect(next);

@@ -17,8 +17,21 @@ export default async function Home({ searchParams }: { searchParams: SP }) {
   const waiting = tab === 'latest' && !before ? await awaitingReply(me) : [];
   const rolling = tab === 'latest' && !before ? await activeTables() : [];
 
+  const base = process.env.APP_URL || '';
+  const ld = {
+    '@context': 'https://schema.org',
+    '@graph': [
+      { '@type': 'WebSite', name: 'Corner Table', url: `${base}/`, description: 'Share startup ideas before you build them, find teammates, and build in public.',
+        potentialAction: { '@type': 'SearchAction', target: `${base}/explore?q={search_term_string}`, 'query-input': 'required name=search_term_string' } },
+      { '@type': 'Organization', name: 'Corner Table', url: `${base}/`, logo: `${base}/icon.svg` },
+    ],
+  };
+
   return (
     <>
+      {!before && tab === 'latest' && (
+        <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(ld).replace(/</g, '\\u003c') }} />
+      )}
       <Notice sp={sp} />
       {me ? (
         <Composer me={me} back={back} />

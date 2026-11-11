@@ -1,7 +1,9 @@
 import Link from 'next/link';
+import { googleConfigured } from '@/lib/auth';
 
 // Shown on the home page to visitors who are not signed in.
 export function Landing() {
+  const google = googleConfigured();
   return (
     <section className="landing" aria-labelledby="landing-title">
       <p className="eyebrow">For solo founders and side-project builders</p>
@@ -11,10 +13,19 @@ export function Landing() {
         from people who care, find teammates, and build in public with fans cheering you on.
       </p>
       <div className="row cta">
-        <Link className="btn" href="/login">Pull up a chair — sign in with GitHub</Link>
+        {google ? (
+          <>
+            <a className="btn" href="/auth/google?next=/">Pull up a chair — continue with Google</a>
+            <a className="btn ghost" href="/auth/github?next=/">GitHub</a>
+          </>
+        ) : (
+          <Link className="btn" href="/login">Pull up a chair — sign in with GitHub</Link>
+        )}
         <Link className="btn ghost" href="/explore">Look around first</Link>
       </div>
-      <p className="trust small muted">Free to join · Only your public GitHub profile is read · Everything here is public by design</p>
+      <p className="trust small muted">
+        Free to join · {google ? 'Sign in with Google or GitHub — we only get your name, email and picture' : 'Only your public GitHub profile is read'} · Everything here is public by design
+      </p>
 
       <h2 className="l-h">Why a table?</h2>
       <p className="l-p">
@@ -106,8 +117,12 @@ export function Landing() {
           <p>Everyone. Corner Table is public by design — that&apos;s how ideas get feedback and fans. Don&apos;t post secrets or anyone&apos;s personal information.</p>
         </details>
         <details>
-          <summary>Why sign in with GitHub?</summary>
-          <p>Most building happens there, so projects link to real repos. We only read your public profile (name, handle, avatar).</p>
+          <summary>{google ? 'Google or GitHub?' : 'Why sign in with GitHub?'}</summary>
+          <p>
+            {google
+              ? 'Either works. Planners, designers and marketers usually pick Google; developers often pick GitHub so projects link to real repos. We only get your name, email and picture — never your password, files or repositories.'
+              : 'Most building happens there, so projects link to real repos. We only read your public profile (name, handle, avatar).'}
+          </p>
         </details>
         <details>
           <summary>What if my project stalls?</summary>

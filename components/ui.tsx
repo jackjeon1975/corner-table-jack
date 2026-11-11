@@ -70,15 +70,28 @@ export function PostCard({ post, me, back, full = false, inProject = false }: { 
       </div>
       <div className={`body${long ? ' clamp' : ''}`}><BodyText text={post.body} /></div>
       {long && <Link className="more" href={`/p/${post.id}`}>Show more</Link>}
-      {post.link_url && (
+      {post.kind === 'partner' && (post.offer || post.seek) && (
+        <div className="partner-chips">
+          {post.offer && <span className="chip"><b>Can do</b> {post.offer}</span>}
+          {post.seek && <span className="chip seek"><b>Looking for</b> {post.seek}</span>}
+        </div>
+      )}
+      {post.link_url && (post.link_title ? (
+        <a className="link-card" href={post.link_url} target="_blank" rel="noopener noreferrer nofollow ugc">
+          <span className="link-site">↗ {post.link_site || domainOf(post.link_url)}</span>
+          <b>{post.link_title}</b>
+          {post.link_desc && <span className="small muted">{post.link_desc}</span>}
+        </a>
+      ) : (
         <div>
           <a className="link" href={post.link_url} target="_blank" rel="noopener noreferrer nofollow ugc">
             ↗ {domainOf(post.link_url)}
           </a>
         </div>
-      )}
+      ))}
       <div className="actions">
         <Link href={`/p/${post.id}`}>Reply{post.reply_count ? ` · ${post.reply_count}` : ''}</Link>
+        {!full && <Link href={`/p/${post.id}#share`}>Share</Link>}
         <form action={toggleCheer}>
           <input type="hidden" name="post_id" value={post.id} />
           <input type="hidden" name="back" value={back} />
@@ -139,6 +152,8 @@ export function Composer({ me, back, projectId, canUpdate, placeholder }: Compos
     : [
         ['note', 'Note'],
         ['idea', 'Idea — a project you want to start'],
+        ['partner', 'Looking for a partner — I can build, need marketing (or the other way)'],
+        ['ask', 'Ask — a founder question or a problem you are stuck on'],
       ];
   return (
     <form action={createPost} className="composer">
@@ -148,6 +163,12 @@ export function Composer({ me, back, projectId, canUpdate, placeholder }: Compos
         {projectId ? 'Say something at this table' : `What's on your mind, @${me.handle}?`}
       </label>
       <textarea id="composer-body" name="body" required placeholder={placeholder ?? (projectId ? 'Share a question, a risk, or where you are.' : 'An idea? Say what it is, who it\'s for, what you\'re unsure about, and who you\'re looking for.')} />
+      {!projectId && (
+        <div className="partner-fields row">
+          <input className="grow" type="text" name="offer" maxLength={120} placeholder="I can… (e.g. build web apps, React/Node)" aria-label="What you can do" />
+          <input className="grow" type="text" name="seek" maxLength={120} placeholder="Looking for… (e.g. a marketer for launch)" aria-label="Who you are looking for" />
+        </div>
+      )}
       {!projectId && (
         <details className="small ai-help">
           <summary>Draft it with AI</summary>

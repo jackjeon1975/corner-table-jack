@@ -3,6 +3,7 @@
 import { redirect } from 'next/navigation';
 import { after } from 'next/server';
 import { notifyUser } from '@/lib/mail';
+import { fetchPreview } from '@/lib/preview';
 import { one, run, tx, now, newId, audit } from '@/lib/db';
 import {
   currentUser, currentSession, mfaFresh, startSession, endSession, isAdmin, devLoginAllowed, safeNext, freeHandle, type User,
@@ -101,7 +102,7 @@ export async function logout() {
 
 // ---------- posts ----------
 
-const HOME_KINDS = ['note', 'idea'];
+const HOME_KINDS = ['note', 'idea', 'partner', 'ask'];
 const PROJECT_KINDS = ['note', 'question', 'risk', 'update', 'help'];
 
 export async function createPost(fd: FormData) {
@@ -121,12 +122,18 @@ export async function createPost(fd: FormData) {
     fail(back, 'Unknown post type.');
   }
   if (await rateLimited('posts', 'author_id', user.id, 20, 3600_000)) fail(back, 'Slow down a little — try again later.');
+  // "Looking for a partner": what I can do / who I'm looking for (short, shown as chips).
+  const offer = kind === 'partner' ? str(fd, 'offer').slice(0, 120) || null : null;
+  const seek = kind === 'partner' ? str(fd, 'seek').slice(0, 120) || null : null;
+  if (kind === 'partner' && !seek) fail(back, 'Say who you are looking for (e.g. a marketer, a designer).');
 
   const t = now();
+  const id = newId();
   await run(
-    `INSERT INTO posts (id, author_id, project_id, kind, body, link_url, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-    newId(), user.id, projectId, kind, body, link, t, t,
+    `INSERT INTO posts (id, author_id, project_id, kind, body, link_url, offer, seek, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    id, user.id, projectId, kind, body, link, offer, seek, t, t,
   );
+  if (link) after(() => savePreview(id, link));
   if (projectId && kind === 'update') await touchProject(projectId);
   redirect(back);
 }
@@ -139,7 +146,15 @@ export async function editPost(fd: FormData) {
   if (!post || post.visibility !== 'public' || post.author_id !== user.id) fail(back, 'You can only edit your own posts.');
   const body = text(fd, 'body', back, 'Post');
   const link = optionalLink(fd, back);
-  await run('UPDATE posts SET body = ?, link_url = ?, updated_at = ? WHERE id = ?', body, link, now(), id);
+  await run(
+    `UPDATE posts SET body = ?, link_url = ?, updated_at = ?,
+       link_title = CASE WHEN link_url IS NOT DISTINCT FROM ? THEN link_title END,
+       link_desc = CASE WHEN link_url IS NOT DISTINCT FROM ? THEN link_desc END,
+       link_site = CASE WHEN link_url IS NOT DISTINCT FROM ? THEN link_site END
+     WHERE id = ?`,
+    body, link, now(), link, link, link, id,
+  );
+  if (link) after(() => savePreview(id, link));
   redirect(back);
 }
 
@@ -214,6 +229,12 @@ export async function toggleInterest(fd: FormData) {
     await run('INSERT INTO interests (post_id, user_id, created_at) VALUES (?, ?, ?) ON CONFLICT DO NOTHING', postId, user.id, now());
   }
   redirect(back);
+}
+
+/** Stores the title/description of a post's link so the card is readable without visiting it. */
+async function savePreview(postId: string, link: string) {
+  const p = await fetchPreview(link);
+  if (p) await run('UPDATE posts SET link_title = ?, link_desc = ?, link_site = ? WHERE id = ? AND link_url = ?', p.title, p.description, p.site, postId, link);
 }
 
 // ---------- projects ----------

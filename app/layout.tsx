@@ -11,9 +11,12 @@ const DESCRIPTION =
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
-  title: 'Corner Table — Ideas get a table before they get built.',
+  title: 'Corner Table — Share startup ideas, find teammates, build in public',
   description: DESCRIPTION,
-  alternates: { types: { 'application/rss+xml': [{ url: '/feed.xml', title: 'Corner Table · Latest' }] } },
+  applicationName: 'Corner Table',
+  // Search Console ownership check (meta tag). Set GOOGLE_SITE_VERIFICATION in Vercel.
+  verification: process.env.GOOGLE_SITE_VERIFICATION ? { google: process.env.GOOGLE_SITE_VERIFICATION } : undefined,
+  alternates: { canonical: '/', types: { 'application/rss+xml': [{ url: '/feed.xml', title: 'Corner Table · Latest' }] } },
   openGraph: {
     title: 'Corner Table',
     description: DESCRIPTION,
@@ -23,7 +26,7 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Corner Table — Ideas get a table before they get built.',
+    title: 'Corner Table — Share startup ideas, find teammates, build in public',
     description: DESCRIPTION,
   },
 };

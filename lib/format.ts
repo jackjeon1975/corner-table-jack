@@ -61,6 +61,8 @@ export const STAGE_LABEL: Record<string, string> = {
 export const KIND_LABEL: Record<string, string> = {
   note: 'Note',
   idea: 'Idea',
+  partner: 'Looking for a partner',
+  ask: 'Ask',
   question: 'Question',
   risk: 'Risk',
   update: 'Update',

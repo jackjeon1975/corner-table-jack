@@ -20,6 +20,7 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
   return {
     title: `${title} · Corner Table`,
     description,
+    alternates: { canonical: `/p/${id}` },
     openGraph: { title, description, url: `/p/${id}`, siteName: 'Corner Table', type: 'article' },
     twitter: { card: 'summary_large_image', title, description },
   };
@@ -39,8 +40,32 @@ export default async function PostPage({ params, searchParams }: Props) {
   );
   const mine = me?.id === post.author_id;
 
+  const base = process.env.APP_URL || '';
+  // Structured data so search engines understand this is a discussion with replies.
+  const ld = {
+    '@context': 'https://schema.org',
+    '@type': 'DiscussionForumPosting',
+    headline: post.body.split('\n')[0].trim().slice(0, 110),
+    text: post.body.slice(0, 5000),
+    url: `${base}/p/${post.id}`,
+    datePublished: post.created_at,
+    dateModified: post.updated_at,
+    author: { '@type': 'Person', name: post.handle, url: `${base}/u/${post.handle}` },
+    interactionStatistic: [
+      { '@type': 'InteractionCounter', interactionType: 'https://schema.org/CommentAction', userInteractionCount: post.reply_count },
+      { '@type': 'InteractionCounter', interactionType: 'https://schema.org/LikeAction', userInteractionCount: post.cheer_count + post.interest_count },
+    ],
+    comment: replies.slice(0, 20).map((r) => ({
+      '@type': 'Comment',
+      text: r.body.slice(0, 2000),
+      datePublished: r.created_at,
+      author: { '@type': 'Person', name: r.handle, url: `${base}/u/${r.handle}` },
+    })),
+  };
+
   return (
     <>
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(ld).replace(/</g, '\\u003c') }} />
       <Notice sp={sp} />
       <PostCard post={post} me={me} back={back} full />
 

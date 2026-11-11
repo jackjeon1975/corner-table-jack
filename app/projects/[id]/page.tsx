@@ -6,6 +6,7 @@ import { all, one } from '@/lib/db';
 import { getProject, membersOf, projectPosts, projectStreak, cursorOf, PAGE_SIZE } from '@/lib/queries';
 import { domainOf, timeAgo, STAGES, STAGE_LABEL } from '@/lib/format';
 import { Composer, Notice, PostCard, QuietBadge, ReportButton, StageBadge } from '@/components/ui';
+import { ShareBar } from '@/components/share';
 import {
   addNeed, applyToJoin, changeStage, decideMembership, editProject, setRecruiting, toggleFollow, updateNeed,
 } from '@/app/actions';
@@ -112,6 +113,8 @@ export default async function ProjectPage({ params, searchParams }: Props) {
         )}
         {me && !isLeader && <ReportButton type="project" id={id} back={back} />}
       </div>
+
+      <ShareBar url={`${base}/projects/${id}`} text={`${project.title} — building in public on Corner Table`} />
 
       <div className="section-title">Concept</div>
       <div className="prose">{project.concept}</div>

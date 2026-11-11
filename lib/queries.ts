@@ -8,6 +8,11 @@ export type PostRow = {
   kind: string;
   body: string;
   link_url: string | null;
+  link_title: string | null;
+  link_desc: string | null;
+  link_site: string | null;
+  offer: string | null;
+  seek: string | null;
   visibility: string;
   created_at: string;
   updated_at: string;
@@ -252,5 +257,13 @@ export async function mostWanted(me: User | null, limit = 5): Promise<PostRow[]>
      WHERE x.interest_count > 0 AND x.created_at > ?
      ORDER BY x.interest_count DESC, x.created_at DESC LIMIT ?`,
     me?.id ?? '', me?.id ?? '', since, limit,
+  );
+}
+
+/** Latest public home posts of one kind (partner, ask, idea) for Explore. */
+export async function postsOfKind(kind: string, me: User | null, limit = 30): Promise<PostRow[]> {
+  return all<PostRow>(
+    `${POST_SELECT} WHERE ${PUBLIC} AND p.kind = ? AND p.project_id IS NULL ORDER BY p.created_at DESC, p.id DESC LIMIT ?`,
+    me?.id ?? '', me?.id ?? '', kind, limit,
   );
 }

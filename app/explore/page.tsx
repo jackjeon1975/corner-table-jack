@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { currentUser } from '@/lib/auth';
-import { listProjects, searchPosts, popularTopics, mostWanted } from '@/lib/queries';
+import { listProjects, searchPosts, popularTopics, mostWanted, postsOfKind } from '@/lib/queries';
 import { STAGES, STAGE_LABEL, timeAgo } from '@/lib/format';
 import { PostCard, QuietBadge, StageBadge } from '@/components/ui';
 
@@ -9,7 +9,7 @@ type SP = Promise<Record<string, string | string[] | undefined>>;
 
 export async function generateMetadata({ searchParams }: { searchParams: SP }): Promise<Metadata> {
   const sp = await searchParams;
-  const filtered = ['q', 'stage', 'recruiting', 'help'].some((k) => sp[k]);
+  const filtered = ['q', 'stage', 'recruiting', 'help', 'kind'].some((k) => sp[k]);
   return {
     title: 'Explore startup ideas and projects · Corner Table',
     description: 'Browse ideas and side projects being built in public. Find teams that are recruiting or need help.',
@@ -29,7 +29,10 @@ export default async function Explore({ searchParams }: { searchParams: SP }) {
   const projects = await listProjects({ q, stage, recruiting, help });
   const posts = q ? await searchPosts(q, me) : [];
   const topics = await popularTopics();
-  const wanted = q ? [] : await mostWanted(me);
+  const KINDS: Record<string, string> = { partner: 'Looking for a partner', ask: 'Founder questions', idea: 'Ideas' };
+  const kind = typeof sp.kind === 'string' && KINDS[sp.kind] ? sp.kind : '';
+  const wanted = q || kind ? [] : await mostWanted(me);
+  const kindPosts = kind ? await postsOfKind(kind, me) : [];
 
   return (
     <>
@@ -59,6 +62,21 @@ export default async function Explore({ searchParams }: { searchParams: SP }) {
         </nav>
       )}
 
+      <nav className="tabs" aria-label="Post types">
+        <Link href="/explore" className={!kind ? 'on' : ''}>Projects</Link>
+        {Object.entries(KINDS).map(([k, label]) => (
+          <Link key={k} href={`/explore?kind=${k}`} className={kind === k ? 'on' : ''} aria-current={kind === k ? 'page' : undefined}>{label}</Link>
+        ))}
+      </nav>
+
+      {kind && (
+        <>
+          <div className="section-title">{KINDS[kind]} · {kindPosts.length}</div>
+          {kind === 'partner' && <p className="small muted">Builders who need marketers, marketers who need builders. Say hi in the replies.</p>}
+          {kindPosts.length === 0 ? <p className="muted small">Nothing here yet — be the first.</p> : kindPosts.map((p) => <PostCard key={p.id} post={p} me={me} back={`/explore?kind=${kind}`} />)}
+        </>
+      )}
+
       {wanted.length > 0 && (
         <>
           <div className="section-title">Ideas people want · last 30 days</div>
@@ -66,9 +84,9 @@ export default async function Explore({ searchParams }: { searchParams: SP }) {
         </>
       )}
 
-      <div className="section-title">Projects · {projects.length}</div>
-      {projects.length === 0 && <p className="muted small">No projects match yet. Maybe yours is the first.</p>}
-      {projects.map((p) => (
+      {!kind && <div className="section-title">Projects · {projects.length}</div>}
+      {!kind && projects.length === 0 && <p className="muted small">No projects match yet. Maybe yours is the first.</p>}
+      {!kind && projects.map((p) => (
         <div className="card project-card" key={p.id}>
           <div className="row" style={{ gap: 6 }}>
             <StageBadge stage={p.stage} />

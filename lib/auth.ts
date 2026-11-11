@@ -18,6 +18,8 @@ export type User = {
   can_help: string;
   email: string | null;
   notify_email: boolean;
+  google_sub: string | null;
+  totp_enabled: boolean;
 };
 
 const sha256 = (s: string) => crypto.createHash('sha256').update(s).digest('hex');
@@ -31,6 +33,23 @@ export async function currentUser(): Promise<User | null> {
     sha256(token), now(),
   );
   return user ?? null;
+}
+
+/** The signed-in session row (for step-up checks such as two-step verification). */
+export async function currentSession(): Promise<{ token_hash: string; mfa_at: string | null } | null> {
+  const token = (await cookies()).get(SESSION_COOKIE)?.value;
+  if (!token) return null;
+  return (await one<{ token_hash: string; mfa_at: string | null }>(
+    'SELECT token_hash, mfa_at FROM sessions WHERE token_hash = ? AND expires_at > ?', sha256(token), now(),
+  )) ?? null;
+}
+
+export const MFA_HOURS = 12;
+
+/** True when this session passed two-step verification within MFA_HOURS. */
+export async function mfaFresh(): Promise<boolean> {
+  const s = await currentSession();
+  return Boolean(s?.mfa_at && Date.now() - new Date(s.mfa_at).getTime() < MFA_HOURS * 3600_000);
 }
 
 export async function startSession(userId: string) {
@@ -62,11 +81,23 @@ export function isAdmin(user: User | null): boolean {
     .split(',')
     .map((s) => s.trim().toLowerCase())
     .filter(Boolean);
-  return list.includes(user.handle.toLowerCase());
+  if (!list.includes(user.handle.toLowerCase())) return false;
+  // Admin handles only count for GitHub accounts (handles of other sign-in methods are self-derived),
+  // or for dev-login accounts where dev login is enabled.
+  return user.github_user_id != null || (user.is_dev && devLoginAllowed());
 }
 
 export const devLoginAllowed = () =>
   process.env.NODE_ENV !== 'production' || process.env.ALLOW_DEV_LOGIN === '1';
+
+export const googleConfigured = () =>
+  Boolean(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET && process.env.APP_URL);
+
+/** A valid handle from free text (Google name or email): letters, digits, single hyphens, ≤ 30 chars. */
+export function handleFrom(raw: string): string {
+  const h = raw.toLowerCase().normalize('NFKD').replace(/[^a-z0-9-]+/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '').slice(0, 30).replace(/-$/, '');
+  return h.length >= 2 ? h : `member-${h || 'new'}`;
+}
 
 export const githubConfigured = () =>
   Boolean(process.env.GITHUB_CLIENT_ID && process.env.GITHUB_CLIENT_SECRET && process.env.APP_URL);

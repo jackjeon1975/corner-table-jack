@@ -6,9 +6,8 @@ import { notifyUser } from '@/lib/mail';
 import { fetchPreview } from '@/lib/preview';
 import { one, run, tx, now, newId, audit } from '@/lib/db';
 import {
-  currentUser, currentSession, mfaFresh, startSession, endSession, isAdmin, devLoginAllowed, safeNext, freeHandle, type User,
+  currentUser, startSession, endSession, isAdmin, devLoginAllowed, safeNext, freeHandle, type User,
 } from '@/lib/auth';
-import { verifyTotp } from '@/lib/totp';
 import { safeHttpsUrl, githubRepoUrl, MAX_TEXT, STAGES } from '@/lib/format';
 import { isMember } from '@/lib/queries';
 
@@ -498,44 +497,7 @@ export async function rightsReport(fd: FormData) {
 async function requireAdmin(): Promise<User> {
   const u = await requireUser('/ops');
   if (!isAdmin(u)) redirect('/');
-  if (!u.totp_enabled || !(await mfaFresh())) redirect('/ops'); // two-step verification first
   return u;
-}
-
-// ---------- two-step verification for /ops ----------
-
-/** Checks a 6-digit code for the signed-in admin; on success marks this session verified. */
-async function passTotp(fd: FormData, enabling: boolean): Promise<void> {
-  const u = await requireUser('/ops');
-  if (!isAdmin(u)) redirect('/');
-  const since = new Date(Date.now() - 15 * 60_000).toISOString();
-  const fails = await one<{ n: number }>(
-    `SELECT COUNT(*)::int AS n FROM audit_log WHERE actor_id = ? AND action = 'mfa_fail' AND created_at > ?`, u.id, since,
-  );
-  if ((fails?.n ?? 0) >= 5) fail('/ops', 'Too many wrong codes. Wait 15 minutes and try again.');
-  const row = await one<{ totp_secret: string | null; totp_enabled: boolean; totp_last_step: string | null }>(
-    'SELECT totp_secret, totp_enabled, totp_last_step FROM users WHERE id = ?', u.id,
-  );
-  if (!row?.totp_secret || row.totp_enabled === enabling) redirect('/ops');
-  const step = verifyTotp(row.totp_secret, str(fd, 'code'));
-  if (step === null || (row.totp_last_step != null && step <= Number(row.totp_last_step))) {
-    await audit(u.id, 'mfa_fail', 'user', u.id);
-    fail('/ops', 'That code did not match. Check the time on your phone and try the newest code.');
-  }
-  await run('UPDATE users SET totp_enabled = TRUE, totp_last_step = ? WHERE id = ?', step, u.id);
-  const s = await currentSession();
-  if (s) await run('UPDATE sessions SET mfa_at = ? WHERE token_hash = ?', now(), s.token_hash);
-  await audit(u.id, enabling ? 'mfa_enabled' : 'mfa_verified', 'user', u.id);
-}
-
-export async function enableOpsMfa(fd: FormData) {
-  await passTotp(fd, true);
-  redirect(withMsg('/ops', 'ok', 'Two-step verification is on. You will be asked for a code every 12 hours.'));
-}
-
-export async function verifyOpsMfa(fd: FormData) {
-  await passTotp(fd, false);
-  redirect('/ops');
 }
 
 export async function moderate(fd: FormData) {

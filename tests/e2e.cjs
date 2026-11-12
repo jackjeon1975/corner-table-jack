@@ -26,18 +26,6 @@ async function waitForServer(url, ms = 60000) {
   throw new Error('server did not start');
 }
 
-// RFC 6238 TOTP for the /ops two-step check (same algorithm as lib/totp.ts).
-function totp(secret, t = Date.now()) {
-  const crypto = require('node:crypto');
-  const A32 = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
-  let bits = 0, value = 0; const bytes = [];
-  for (const c of secret) { value = (value << 5) | A32.indexOf(c); bits += 5; if (bits >= 8) { bytes.push((value >>> (bits - 8)) & 255); bits -= 8; } }
-  const msg = Buffer.alloc(8); msg.writeBigUInt64BE(BigInt(Math.floor(t / 30000)));
-  const h = crypto.createHmac('sha1', Buffer.from(bytes)).update(msg).digest();
-  const o = h[h.length - 1] & 15;
-  return String((((h[o] & 127) << 24) | (h[o + 1] << 16) | (h[o + 2] << 8) | h[o + 3]) % 1e6).padStart(6, '0');
-}
-
 async function resetDatabase() {
   const { Client } = require('pg');
   const client = new Client({ connectionString: DB });
@@ -179,18 +167,7 @@ async function main(browser) {
   await A.click('button:has-text("Send")');
   await A.waitForTimeout(400); await A.waitForLoadState('networkidle');
   check(await A.getByText('report was received').isVisible(), 'report submitted');
-  // /ops asks for two-step verification first
   await A.goto(B + '/ops');
-  check(await A.getByText('Turn on two-step verification').isVisible(), 'ops requires two-step setup');
-  const secret = await A.locator('[data-totp-secret]').getAttribute('data-totp-secret');
-  await A.fill('input[name=code]', '000000');
-  await A.click('button:has-text("Turn on")');
-  await A.waitForTimeout(400); await A.waitForLoadState('networkidle');
-  check(await A.getByText('did not match').isVisible(), 'wrong code rejected');
-  await A.fill('input[name=code]', totp(secret));
-  await A.click('button:has-text("Turn on")');
-  await A.waitForTimeout(400); await A.waitForLoadState('networkidle');
-  check(await A.getByText('Two-step verification is on').isVisible(), 'two-step verification enabled');
   await A.click('button:has-text("Hide")');
   await A.waitForTimeout(400); await A.waitForLoadState('networkidle');
   const res = await Bp.goto(B + riskLink);

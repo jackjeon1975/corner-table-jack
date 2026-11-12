@@ -87,4 +87,4 @@ Copy `.env.example` to `.env.local` and fill in:
 - Not yet built (PRD P1): GitHub release import, "decided" marks on Questions, continuing an ended project, translation, notifications.
 - `/ops` is open to admins only: GitHub accounts listed in `ADMIN_HANDLES`.
 - Google sign-in appears on `/login` once `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` are set (redirect URI `$APP_URL/auth/google/callback`). Production uses the Google Cloud project "Corner Table" (published, basic scopes only).
-- Web Analytics: the layout loads `/_vercel/insights/script.js` on Vercel; enable Analytics on the project and redeploy.
+- Web Analytics: the layout loads `/_vercel/insights/script.js` on Vercel; enable Analytics on the project and redeploy. (Enabled 2026-11-12, included in the Pro plan.)

@@ -1,11 +1,10 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import { currentUser, isAdmin, mfaFresh, MFA_HOURS } from '@/lib/auth';
-import { all, one, run } from '@/lib/db';
-import { newTotpSecret, otpauthUri } from '@/lib/totp';
+import { currentUser, isAdmin } from '@/lib/auth';
+import { all } from '@/lib/db';
 import { Notice } from '@/components/ui';
 import { timeAgo } from '@/lib/format';
-import { enableOpsMfa, moderate, resolveReport, verifyOpsMfa } from '@/app/actions';
+import { moderate, resolveReport } from '@/app/actions';
 
 type SP = Promise<Record<string, string | string[] | undefined>>;
 
@@ -13,42 +12,6 @@ export default async function Ops({ searchParams }: { searchParams: SP }) {
   const sp = await searchParams;
   const me = await currentUser();
   if (!me || !isAdmin(me)) notFound();
-
-  // Two-step verification gate: set up once, then a code every MFA_HOURS.
-  if (!me.totp_enabled) {
-    await run('UPDATE users SET totp_secret = ? WHERE id = ? AND totp_secret IS NULL AND NOT totp_enabled', newTotpSecret(), me.id);
-    const secret = (await one<{ totp_secret: string }>('SELECT totp_secret FROM users WHERE id = ?', me.id))!.totp_secret;
-    return (
-      <>
-        <h1>Turn on two-step verification</h1>
-        <Notice sp={sp} />
-        <p>Moderation can hide anyone&apos;s posts, so it needs a second step besides GitHub sign-in.</p>
-        <ol className="prose">
-          <li>Open an authenticator app on your phone (Google Authenticator, Microsoft Authenticator, 1Password…).</li>
-          <li>Add an account → <b>Enter a setup key</b>. Account name: <b>Corner Table</b>. Key:</li>
-        </ol>
-        <p className="totp-key" data-totp-secret={secret}>{secret.match(/.{1,4}/g)!.join(' ')}</p>
-        <p className="small muted">On your phone you can tap <a href={otpauthUri(secret, me.handle)}>this link</a> instead. Keep this key private.</p>
-        <form action={enableOpsMfa} className="card row">
-          <input className="grow" type="text" name="code" inputMode="numeric" autoComplete="one-time-code" pattern="[0-9 ]{6,7}" required placeholder="6-digit code from the app" aria-label="Code" />
-          <button type="submit">Turn on</button>
-        </form>
-      </>
-    );
-  }
-  if (!(await mfaFresh())) {
-    return (
-      <>
-        <h1>Moderation</h1>
-        <Notice sp={sp} />
-        <p className="muted">Enter the 6-digit code from your authenticator app. You stay verified for {MFA_HOURS} hours on this device.</p>
-        <form action={verifyOpsMfa} className="card row">
-          <input className="grow" type="text" name="code" inputMode="numeric" autoComplete="one-time-code" pattern="[0-9 ]{6,7}" required placeholder="6-digit code" aria-label="Code" autoFocus />
-          <button type="submit">Verify</button>
-        </form>
-      </>
-    );
-  }
 
   const reports = await all<{
     id: string; target_type: string; target_id: string; reason: string; details: string; contact_email: string | null;

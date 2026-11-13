@@ -233,3 +233,29 @@ form.composer:has(select[name=kind] option[value=partner]:checked) .partner-fiel
 .share { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 10px 0 4px; }
 .share-btn { font-size: 13px; padding: 4px 10px; border: 1px solid var(--line); border-radius: 999px; background: transparent; color: var(--text); text-decoration: none; cursor: pointer; }
 .share-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+/* ---------- touch feedback & navigation progress ---------- */
+a, button, .btn, summary, select { -webkit-tap-highlight-color: rgba(138, 75, 42, 0.12); touch-action: manipulation; }
+button, .btn { transition: transform 0.08s ease, opacity 0.08s ease, background-color 0.12s ease; }
+button:active, .btn:active { transform: scale(0.96); opacity: 0.85; }
+button.plain { padding: 6px 4px; min-height: 32px; border-radius: 6px; }
+button.plain:active { background: var(--accent-soft); transform: none; }
+.nav a:active, a.card:active { opacity: 0.7; }
+button.is-busy, .btn.is-busy { opacity: 0.6; pointer-events: none; position: relative; }
+button.is-busy::after, .btn.is-busy::after {
+  content: ''; display: inline-block; width: 0.8em; height: 0.8em; margin-left: 6px; vertical-align: -0.1em;
+  border: 2px solid currentColor; border-right-color: transparent; border-radius: 50%; animation: ct-spin 0.7s linear infinite;
+}
+html.nav-busy body::before {
+  content: ''; position: fixed; top: 0; left: 0; z-index: 100; height: 3px; width: 100%;
+  background: linear-gradient(90deg, transparent, var(--accent), transparent); background-size: 50% 100%;
+  background-repeat: no-repeat; animation: ct-bar 0.9s ease-in-out infinite;
+}
+html.nav-busy main { opacity: 0.6; transition: opacity 0.15s ease 0.1s; }
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+@keyframes ct-spin { to { transform: rotate(360deg); } }
+@keyframes ct-bar { from { background-position: -50% 0; } to { background-position: 150% 0; } }
+@media (prefers-reduced-motion: reduce) {
+  button, .btn { transition: none; }
+  button.is-busy::after, html.nav-busy body::before { animation: none; }
+}

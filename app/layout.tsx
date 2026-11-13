@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from 'next';
 import Link from 'next/link';
 import './globals.css';
 import { currentUser, isAdmin } from '@/lib/auth';
+import { PendingFeedback } from '@/components/pending';
 
 export const dynamic = 'force-dynamic';
 
@@ -56,6 +57,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           </div>
         </header>
         <main className="wrap">{children}</main>
+        <PendingFeedback />
         <footer className="wrap footer">
           Ideas get a table before they get built. · <Link href="/about">About</Link> · <Link href="/privacy">Privacy</Link> · <Link href="/terms">Terms</Link> · <Link href="/report">Report a rights issue</Link>
         </footer>

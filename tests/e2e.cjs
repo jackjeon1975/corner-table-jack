@@ -35,9 +35,27 @@ async function resetDatabase() {
   await client.end();
 }
 
+// Pages update after a short server round trip; wait until tap feedback (spinner / progress bar) clears.
+function settled(page) {
+  const goto = page.goto.bind(page);
+  page.goto = async (...args) => {
+    const res = await goto(...args);
+    await page.waitForSelector('.page-loading', { state: 'detached', timeout: 15000 }).catch(() => {});
+    return res;
+  };
+  const click = page.click.bind(page);
+  page.click = async (...args) => {
+    const res = await click(...args);
+    await page.waitForTimeout(150);
+    await page.waitForFunction(() => !document.querySelector('.page-loading, .is-busy'), null, { timeout: 15000 }).catch(() => {});
+    return res;
+  };
+  return page;
+}
+
 async function main(browser) {
   const ctxA = await browser.newContext({ viewport: { width: 1100, height: 900 } });
-  const A = await ctxA.newPage();
+  const A = settled(await ctxA.newPage());
   // Anonymous read
   await A.goto(B + '/');
   check(await A.getByText('The table is empty.').isVisible(), 'empty state shown to visitor');
@@ -96,7 +114,7 @@ async function main(browser) {
 
   // Second user: fan who follows and applies
   const ctxB = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2 });
-  const Bp = await ctxB.newPage();
+  const Bp = settled(await ctxB.newPage());
   await Bp.goto(projectUrl);
   check(await Bp.getByText('Sign in to ask to join').isVisible(), 'visitor can read project, prompted to sign in');
   await Bp.goto(B + '/login?next=' + encodeURIComponent(new URL(projectUrl).pathname));

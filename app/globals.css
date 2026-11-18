@@ -259,3 +259,9 @@ html.nav-busy main { opacity: 0.6; transition: opacity 0.15s ease 0.1s; }
   button, .btn { transition: none; }
   button.is-busy::after, html.nav-busy body::before { animation: none; }
 }
+
+/* ---------- editing your own post ---------- */
+.edit-link { font-weight: 600; }
+.edit-box { flex-basis: 100%; }
+.edit-box > summary { color: var(--accent); font-size: 14px; font-weight: 600; padding: 6px 0; }
+.edit-box textarea { min-height: 320px; }

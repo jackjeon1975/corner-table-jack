@@ -113,6 +113,9 @@ export function PostCard({ post, me, back, full = false, inProject = false }: { 
             </button>
           </form>
         )}
+        {me?.id === post.author_id && (
+          <Link href={`/p/${post.id}?edit=1#edit`} className="edit-link">✏️ Edit</Link>
+        )}
         {post.kind === 'idea' && !post.started_project_id && me?.id === post.author_id && (
           <Link href={`/p/${post.id}/start`}>Start a project →</Link>
         )}

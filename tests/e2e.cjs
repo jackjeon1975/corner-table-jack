@@ -75,6 +75,16 @@ async function main(browser) {
   await A.waitForTimeout(400); await A.waitForLoadState('networkidle');
   check(longIdea.length > 2000 && await A.getByText('Show more').isVisible(), `long post (${longIdea.length} chars) accepted and clamped`);
 
+  // Edit your own post from the feed
+  await A.click('a.edit-link >> nth=0');
+  await A.waitForURL(/\/p\/.+\?edit=1/);
+  check(await A.locator('#edit-body').isVisible(), 'edit form opens from the Edit link');
+  await A.fill('#edit-body', 'Re-launch a game that failed before AI (edited).\n' + longIdea.split('\n')[1]);
+  await A.click('button:has-text("Save changes")');
+  await A.waitForURL(/\/p\/[^?]+$/);
+  check(await A.getByText('Re-launch a game that failed before AI (edited).').first().isVisible(), 'edited post saved');
+  await A.goto(B + '/');
+
   // Start project
   await A.click('text=Start a project →');
   await A.fill('input[name=title]', 'Second Life for a Lost Game');

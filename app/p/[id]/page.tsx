@@ -40,6 +40,7 @@ export default async function PostPage({ params, searchParams }: Props) {
     id,
   );
   const mine = me?.id === post.author_id;
+  const editing = mine && sp.edit === '1';
 
   const base = process.env.APP_URL || '';
   // Structured data so search engines understand this is a discussion with replies.
@@ -73,13 +74,17 @@ export default async function PostPage({ params, searchParams }: Props) {
 
       <div className="row small" style={{ gap: 16 }}>
         {mine && (
-          <details>
-            <summary>Edit</summary>
+          <details id="edit" className="edit-box" open={editing}>
+            <summary>✏️ Edit post</summary>
             <form action={editPost}>
               <input type="hidden" name="post_id" value={post.id} />
-              <textarea name="body" required defaultValue={post.body} aria-label="Post text" />
+              <label htmlFor="edit-body">Text (the first line is the title)</label>
+              <textarea id="edit-body" name="body" required defaultValue={post.body} autoFocus={editing} />
               <input type="url" name="link_url" defaultValue={post.link_url ?? ''} placeholder="https:// link (optional)" aria-label="Link" style={{ marginTop: 6 }} />
-              <div className="row" style={{ marginTop: 6 }}><button type="submit">Save</button></div>
+              <div className="row" style={{ marginTop: 8 }}>
+                <button type="submit">Save changes</button>
+                <Link href={`/p/${post.id}`} className="btn ghost">Cancel</Link>
+              </div>
             </form>
           </details>
         )}
